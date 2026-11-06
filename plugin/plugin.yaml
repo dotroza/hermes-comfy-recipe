@@ -1,0 +1,45 @@
+name: comfy-live
+version: "0.1.0"
+description: >
+  Comfy Live: the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
+  clicks Run - while you watch or step in. Plus headless runs of saved UI workflows (subgraphs included,
+  .json never rewritten) with a per-stage timing breakdown, video contact sheets and a timing log.
+author: dotroza
+homepage: https://github.com/dotroza/hermes-comfy-live
+license: MIT
+provides_tools:
+  - comfy_instances
+  - comfy_workflows
+  - comfy_run
+  - comfy_result
+provides_hooks:
+  - pre_llm_call
+config_schema:
+  personal_skill:
+    type: string
+    default: ""
+    description: >
+      Name of your own ComfyUI skill (paths, workflow catalog, model notes). Loaded in every ComfyUI session
+      after the generic comfy-live:session skill, and wins where they differ. Leave empty if you have none.
+  motto:
+    type: string
+    default: ""
+    description: Optional text shown after "[ComfyUI session]" when a session opens (decoration only).
+  extra_urls:
+    type: list
+    default: []
+    description: >
+      ComfyUI servers on non-standard ports, e.g. ["http://127.0.0.1:8283"]. Ports 8188-8190 and 8000 are
+      always checked.
+  stabilitymatrix_dirs:
+    type: list
+    default: []
+    description: >
+      StabilityMatrix data folders for portable installs (the folder that contains settings.json and
+      Packages/). Learned automatically once their ComfyUI has been seen running.
+  converter_python:
+    type: string
+    default: ""
+    description: >
+      Path to a Python that has comfy-cli installed (needed for headless runs only). Empty = auto-detect
+      (the `comfy` command, Hermes' own Python, pipx).
