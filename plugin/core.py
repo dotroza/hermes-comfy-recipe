@@ -141,10 +141,8 @@ def discover() -> dict:
     known_urls = {i["url"] for i in found.values()}
     probe = [f"http://127.0.0.1:{p}" for p in PROBE_PORTS] + [u.rstrip("/") for u in SETTINGS.get("extra_urls") or []]
     learned = False
-    for url in dict.fromkeys(probe):
-        if url in known_urls:
-            continue
-        stats = cc.alive(url)
+    probed = cc.alive_many(u for u in probe if u not in known_urls)
+    for url, stats in probed.items():
         if not stats:
             continue
         root = _root_from_stats(stats)
@@ -173,7 +171,8 @@ def instances(action: str = "list", name: str | None = None) -> dict:
             raise ValueError(f"unknown instance {name!r}; known: {list(st['instances'])}")
         st["active"] = name
         _save_state(st)
-    stats_by_name = {n: cc.alive(i["url"]) for n, i in st["instances"].items()}
+    by_url = cc.alive_many(i["url"] for i in st["instances"].values())
+    stats_by_name = {n: by_url.get(i["url"]) for n, i in st["instances"].items()}
     running, seen_urls = [], set()
     for n, s in stats_by_name.items():  # one entry per server: a named install and a port probe can share a URL
         url = st["instances"][n]["url"]

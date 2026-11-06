@@ -1,6 +1,6 @@
 """Comfy Live - Hermes plugin to work in a local ComfyUI, visibly in the preview pane or headless.
 
-Tools: comfy_instances, comfy_workflows, comfy_run, comfy_result.  Command: /comfy.
+Tools: comfy_instances, comfy_workflows, comfy_templates, comfy_run, comfy_result.  Command: /comfy.
 Hook: pre_llm_call (ComfyUI-session instructions, model-side only).  Skill: comfy-live:session.
 Logic lives in core.py (Hermes-independent); this file wires schemas, settings, the hook and the command.
 """
@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from . import core
+from . import templates
 
 TOOLSET = "comfy_live"
 SKILL = "comfy-live:session"
@@ -73,6 +74,29 @@ SCHEMAS = {
             "workflow": {"type": "string", "description": "Workflow name or path fragment (describe / timings filter)."},
             "filter": {"type": "string", "description": "Substring filter for list."}}, "required": ["action"]},
     },
+    "comfy_templates": {
+        "name": "comfy_templates",
+        "description": "ComfyUI's built-in workflow templates (the Templates panel: ~650 official ones). action=search with a query "
+                       "(task, model or medium, e.g. 'image edit turbo', 'video with audio', '3d from image') returns the best "
+                       "matches with title, short description, inputs, download size, a thumbnail (thumbnail_path - show it with "
+                       "MEDIA:) and readiness: which models are installed, missing_models (folder + download URL) and missing "
+                       "custom node types. local_only=true (default) hides paid cloud-API templates. Use it to PROPOSE 2-4 "
+                       "templates as a starting point; prefer ready ones and say what is missing for the others. action=describe "
+                       "name=<template> gives full details. action=save name=<template> copies it into the user's workflows "
+                       "(folder 'templates') so it shows in the Workflows sidebar and works with comfy_run. In a ComfyUI session, "
+                       "OPEN a template in the window by hand: click the Templates button, type the title in its Search box, then "
+                       "click the result's window_card_selector. Never download missing models without the user's OK.",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["search", "describe", "save"]},
+            "query": {"type": "string", "description": "search: what the user wants to make."},
+            "media": {"type": "string", "description": "search: optional filter: image, video, audio, 3d, or a category name."},
+            "local_only": {"type": "boolean", "description": "search: hide cloud-API templates (default true)."},
+            "limit": {"type": "integer", "description": "search: max results (default 6, max 12)."},
+            "name": {"type": "string", "description": "describe/save: template name from search results."},
+            "new_name": {"type": "string", "description": "save: file name for the copy (default = template name)."},
+            "folder": {"type": "string", "description": "save: workflows subfolder (default 'templates')."}},
+            "required": ["action"]},
+    },
     "comfy_run": {
         "name": "comfy_run",
         "description": "HEADLESS run: queue a saved ComfyUI UI workflow (subgraphs supported) through the API, WITHOUT modifying "
@@ -122,12 +146,17 @@ def _workflows(p: dict):
 HANDLERS = {
     "comfy_instances": lambda p: core.instances(p.get("action", "list"), p.get("name")),
     "comfy_workflows": _workflows,
+    "comfy_templates": lambda p: (
+        templates.search(p.get("query") or "", p.get("media"), p.get("local_only", True) is not False, p.get("limit", 6))
+        if p.get("action", "search") == "search" else
+        templates.describe(p["name"]) if p["action"] == "describe" else
+        templates.save(p["name"], p.get("folder") or "templates", p.get("new_name"))),
     "comfy_run": lambda p: core.run(p["workflow"], p.get("prompt"), p.get("overrides"), p.get("images"), p.get("seed"),
                                     p.get("instance"), bool(p.get("dry_run"))),
     "comfy_result": lambda p: core.result(p["prompt_id"], int(p.get("wait_s", 600)), p.get("instance")),
 }
 
-USAGE = ("/comfy status | /comfy switch <instance> | /comfy workflows [filter] | /comfy setup | "
+USAGE = ("/comfy status | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy setup | "
          "/comfy run <workflow> :: <prompt>   (headless; ask Hermes for the result)")
 
 
@@ -172,6 +201,14 @@ def _command(raw_args: str) -> str:
         if args.startswith("workflows"):
             flt = args.split(None, 1)[1] if " " in args else ""
             return "\n".join(_workflows({"action": "list", "filter": flt})["workflows"]) or "(none)"
+        if args.startswith("templates"):
+            q = args.split(None, 1)[1] if " " in args else ""
+            r = templates.search(q, check_models=True, limit=8)
+            rows = [f"{'ready  ' if x.get('ready') else 'missing'} {x['title']}  [{x['name']}]"
+                    + (f"  - needs {', '.join(m['name'] for m in x.get('missing_models', []))}" if x.get("missing_models") else "")
+                    for x in r["results"]]
+            rows.insert(0, f"{r['matches']} matching local templates, best {r['shown']}:")
+            return "\n".join(rows)
         if args.startswith("run"):
             wf, _, prompt = args[3:].strip().partition("::")
             wf = shlex.split(wf)[0] if wf.strip() else ""
@@ -189,29 +226,69 @@ SESSION_MARKER = "[ComfyUI session]"
 TITLE_PREFIX = "ComfyUI session "
 
 
-def _session_start(personal_skill: str) -> str:
+def _skills_to_load(personal_skill: str) -> str:
     skills = f"skill_view(\"{SKILL}\") and its file references/pane-recipe.md"
     if personal_skill:
         skills += (f", then the user's own skill skill_view(\"{personal_skill}\") (their paths, workflows and preferences - "
                    "it wins where it differs from the generic one)")
-    return (
-        "[comfy-live] The user just opened a ComfyUI session from the Comfy Live sidebar entry. Any text after the "
-        "\"[ComfyUI session]\" marker in their message is only a motto - it is NOT a request, do not comment on it.\n"
-        f"Instructions from the user for this turn: load {skills}, and follow the recipe step by step. Now: call "
-        "comfy_instances (if its result has action_required, do exactly that and stop), then desktop_preview open its URL "
-        "(label ComfyUI), then ONE drive_preview elements call with max 5 to confirm control - its result carries the page "
-        "title '<workflow name> - ComfyUI'. Do NOT inspect the workflow at this point (no prompt, nodes, widgets, other "
-        "tabs or queue): only the name of the active workflow. Then wait for my instructions.\n"
-        "Answer with exactly this structure, filling every <field> from the tool results of THIS session (never copy "
-        "example values, never write an @url: reference), and nothing else:\n"
-        "### 🎨 ComfyUI ready\n"
-        "The ComfyUI window on the right is open and under my control.\n\n"
-        "- **Instance:** `<name>` (<launcher>) · [<url>](<url>)\n"
-        "- **GPU:** <device name> (<cuda:N from argv, or 'not pinned'>) · <free> / <total> GB free\n"
-        "- **Workflow:** `<active workflow name from the page title, without ' - ComfyUI'; add * if the title starts with *>`\n\n"
-        "I'll make every change and start every run myself in that window. You can also work in the window yourself "
-        "to show me what you want. **What should I do first?**"
-    )
+    return skills
+
+
+CARD = (
+    "Answer with exactly this structure, filling every <field> from the facts above and the page title (never copy "
+    "example values, never write an @url: reference), and nothing else:\n"
+    "### 🎨 ComfyUI ready\n"
+    "The ComfyUI window on the right is open and under my control.\n\n"
+    "- **Instance:** `<name>` (<launcher>) · [<url>](<url>)\n"
+    "- **GPU:** <device name> (<cuda:N from argv, or 'not pinned'>) · <free> / <total> GB free\n"
+    "- **Workflow:** `<active workflow name from the page title, without ' - ComfyUI'; add * if the title starts with *>`\n\n"
+    "I'll make every change and start every run myself in that window. You can also work in the window yourself "
+    "to show me what you want. **What should I do first?**"
+)
+
+MOTTO_NOTE = ("[comfy-live] The user just opened a ComfyUI session from the Comfy Live sidebar entry. Any text after the "
+              "\"[ComfyUI session]\" marker in their message is only a motto - it is NOT a request, do not comment on it.\n")
+
+
+def _open_pane_now(url: str) -> bool:
+    """Open the preview pane on ComfyUI right away, from the hook, before the model's first token (same event the
+    desktop_preview tool emits, routed to the window running this turn). Best-effort: False = let the model open it."""
+    try:
+        from gateway.session_context import get_session_env
+        from tools import desktop_ui
+        if not desktop_ui.available() or not get_session_env("HERMES_UI_SESSION_ID", ""):
+            return False
+        return bool(desktop_ui.emit("preview.open", {"url": url, "label": "ComfyUI"}))
+    except Exception:
+        return False
+
+
+def _session_start(personal_skill: str) -> str:
+    """Kickoff turn. The plugin already resolved the instance and (normally) opened the pane, so the model needs ONE
+    tool call before the card. Skills are loaded on the first real request, not now."""
+    try:
+        _sync_settings()
+        inst = core.instances("list")
+    except Exception as e:
+        inst = {"any_running": False, "action_required": f"Could not query ComfyUI: {e}"}
+    if inst.get("action_required"):
+        return (MOTTO_NOTE + "The plugin checked ComfyUI for you: " + inst["action_required"] +
+                "\nDo not call any tool for this turn unless that instruction says to.")
+    row = next(r for r in inst["instances"] if r["active"])
+    opened = _open_pane_now(row["url"])
+    facts = {"name": row["name"], "launcher": row.get("launcher"), "url": row["url"], "argv": row.get("argv"),
+             "devices": row.get("devices"), "switched": inst.get("switched", {}).get("reason")}
+    step = ("The plugin has ALREADY opened that ComfyUI in the preview pane - do not call comfy_instances or "
+            "desktop_preview open. Your only tool call now: ONE drive_preview elements call with max 5; its result carries "
+            "the page title '<workflow name> - ComfyUI' (0 elements or 'no page' = still loading: terminal sleep 3, retry "
+            "once; if it still has no page, call desktop_preview open with the url above).") if opened else (
+            f"Call desktop_preview open with url {row['url']} (label ComfyUI), then ONE drive_preview elements call with "
+            "max 5; its result carries the page title '<workflow name> - ComfyUI'.")
+    return (MOTTO_NOTE +
+            "ComfyUI facts resolved by the plugin (use them, don't re-query): " + json.dumps(facts, ensure_ascii=False) + "\n"
+            + ("Mention in one line that the plugin switched instance: " + facts["switched"] + "\n" if facts["switched"] else "")
+            + step + " Do NOT inspect the workflow now (no prompt, nodes, widgets, other tabs or queue) and do not load "
+            "skills yet. Then wait for my instructions.\n" + CARD)
 
 
 SESSION_RULES = (
@@ -224,6 +301,13 @@ SESSION_RULES = (
     "select or edit nodes) to guide you or ask about the graph: before acting or answering, re-read the part of the "
     "window concerned instead of assuming its earlier state."
 )
+
+
+def _rules(personal_skill: str, first_request: bool) -> str:
+    if not first_request:
+        return SESSION_RULES
+    return (SESSION_RULES + "\n[comfy-live] Before your first action for this request, load " + _skills_to_load(personal_skill)
+            + ", and follow the recipe step by step.")
 
 
 def _text(content) -> str:
@@ -294,9 +378,11 @@ def _pre_llm_call(user_message=None, conversation_history=None, is_first_turn=No
         return {"context": SESSION_RULES}
     if users and _text(users[0].get("content")).startswith(SESSION_MARKER):
         requests = [m for m in users if not _text(m.get("content")).startswith((SESSION_MARKER, "[System", "[SYSTEM]"))]
-        if len(requests) <= 1:  # this turn is the user's first real request
+        first = len(requests) <= 1  # this turn is the user's first real request
+        if first:
             _release_placeholder_title(session_id)
-        return {"context": SESSION_RULES}
+        personal = str(_settings().get("personal_skill") or "").strip()
+        return {"context": _rules(personal, first)}
     return None
 
 

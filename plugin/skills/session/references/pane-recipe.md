@@ -53,6 +53,14 @@ Run every step with the exact tool calls below; read each result before the next
 4. Result: `comfy_result {"prompt_id":"latest"}` (read-only; works for jobs queued from the window) → timing + output
    paths. Vision-check images; videos: contact sheet from `comfy_result`. Reply with one timing line + `MEDIA:<path>`.
 
+## 7. Open a template
+1. `drive_preview {"action":"click","ref":"<Templates button ref>"}` (left bar, label "Templates").
+2. `drive_preview {"action":"type","ref":"<Search ... input ref of the Templates dialog>","text":"<template title>"}`.
+3. `drive_preview {"action":"click","selector":"[data-testid=\"template-workflow-<template name>\"]"}` — the selector is
+   `window_card_selector` from `comfy_templates`. The cards are not in the `elements` list; the selector is the way.
+4. The template opens as a new tab named after it (check the page title). A "Warning … is missing" banner = a model
+   file is missing: report it with the download link from `comfy_templates`, don't download without the user's OK.
+
 ## Do not
 - Do not call `comfy_run` in a ComfyUI session unless the user says "headless"/"API".
 - Do not click with broad CSS selectors (`[data-testid] button` hits the first button on the page). Use refs.

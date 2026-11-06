@@ -16,3 +16,4 @@
 - In-page reload keeps stale workflow and input-file lists: use `desktop_preview close` + `open` (check for `*` tabs first).
 - Closing a tab with edits: hover the tab → `Close` → `Close anyway` discards them — only with the user's OK.
 - Running: the page title shows `[N%]`.
+- Right after the pane opens, `elements` can return 0 elements or no page while ComfyUI loads (a few seconds): wait ~3 s, retry once.

@@ -36,11 +36,34 @@ def post_json(base: str, path: str, payload: dict):
     return json.loads(raw) if raw else {}
 
 
+def port_open(base: str, timeout: float = 0.3) -> bool:
+    """Fast TCP check. On Windows a refused localhost connect takes ~2 s, so never HTTP-probe a closed port."""
+    import socket
+    u = parse.urlsplit(base)
+    try:
+        with socket.create_connection((u.hostname or "127.0.0.1", u.port or 80), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def alive(base: str) -> dict | None:
+    if not port_open(base):
+        return None
     try:
         return get_json(base, "/system_stats", timeout=3)
     except ComfyError:
         return None
+
+
+def alive_many(bases) -> dict:
+    """{url: system_stats or None}, all checked in parallel."""
+    from concurrent.futures import ThreadPoolExecutor
+    urls = list(dict.fromkeys(bases))
+    if not urls:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(16, len(urls))) as ex:
+        return dict(zip(urls, ex.map(alive, urls)))
 
 
 def list_workflows(base: str) -> list[str]:

@@ -1,5 +1,5 @@
 name: comfy-live
-version: "0.1.0"
+version: "0.2.0"
 description: >
   Comfy Live: the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
   clicks Run - while you watch or step in. Plus headless runs of saved UI workflows (subgraphs included,
@@ -10,6 +10,7 @@ license: MIT
 provides_tools:
   - comfy_instances
   - comfy_workflows
+  - comfy_templates
   - comfy_run
   - comfy_result
 provides_hooks:

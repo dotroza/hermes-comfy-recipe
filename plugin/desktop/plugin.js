@@ -21,32 +21,42 @@ const MARKER = '[ComfyUI session]'
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-// Motto from the agent-side settings (Settings -> Plugins -> Comfy Live). Never blocks the kickoff for long.
-async function readMotto() {
+// Motto from the agent-side settings (Settings -> Plugins -> Comfy Live). Read in parallel with opening the chat,
+// remembered after the first read (refreshed in the background), so it never delays the session.
+let cachedMotto = null
+
+async function fetchMotto() {
   try {
     const res = await Promise.race([host.request('plugins.manage', { action: 'list' }), sleep(2500).then(() => null)])
     const row = (res && res.plugins || []).find(p => p && (p.name === ID || p.key === ID))
     const field = (row && row.settings_schema || []).find(f => f.key === 'motto')
     const motto = field && (field.value ?? field.default)
-    return typeof motto === 'string' ? motto.trim() : ''
+    cachedMotto = typeof motto === 'string' ? motto.trim() : ''
+    return cachedMotto
   } catch {
-    return ''
+    return cachedMotto ?? ''
   }
+}
+
+function readMotto() {
+  const fresh = fetchMotto()
+  return cachedMotto === null ? fresh : Promise.resolve(cachedMotto)
 }
 
 async function startComfySession(ctx) {
   haptic('tap')
-  const motto = await readMotto()
-  const kickoff = motto ? `${MARKER} "${motto.replace(/"/g, "'")}"` : MARKER
+  const mottoP = readMotto() // in parallel with opening the chat
   const res = await ctx.runAction('session.new')
   if (!res || res.ok === false) {
     host.notify({ kind: 'error', message: `Comfy Live: could not open a new chat (${res && res.reason})` })
     return
   }
+  const motto = await mottoP
+  const kickoff = motto ? `${MARKER} "${motto.replace(/"/g, "'")}"` : MARKER
   // The new chat's composer mounts asynchronously; submit is fail-closed (false until a visible composer exists).
-  for (let i = 0; i < 40; i++) {
-    await sleep(150)
+  for (let i = 0; i < 60; i++) {
     if (host.composer.submit(null, kickoff)) return
+    await sleep(100)
   }
   host.notify({ kind: 'warning', message: 'Comfy Live: chat opened, but the kickoff could not be sent — type “[ComfyUI session]”.' })
 }
@@ -73,6 +83,7 @@ export default {
   id: ID,
   name: 'Comfy Live',
   register(ctx) {
+    void fetchMotto() // warm the cache at app start
     ctx.register({
       id: 'new-session',
       area: PALETTE_AREA,

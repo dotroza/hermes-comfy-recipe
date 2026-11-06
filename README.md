@@ -12,12 +12,13 @@ where the time goes.
 
 | | |
 |---|---|
-| **Comfy Live** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session: the agent checks which ComfyUI is running, opens it in the pane and reports instance, GPU and active workflow. The session is named after your first real request. |
+| **Comfy Live** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin itself finds the running ComfyUI and opens it in the pane at the start of the turn (no model round trips), then the agent reports instance, GPU and active workflow. The session is named after your first real request. |
 | `comfy_instances` | Finds ComfyUI installs: StabilityMatrix (incl. portable), ComfyUI Desktop, servers on ports 8188–8190 / 8000 and any `extra_urls`. Switches automatically if the remembered one is down; if none is running it just asks you to start yours — it never starts anything. |
 | `comfy_workflows` | Lists saved workflows, describes one (subgraph controls, Load Image nodes, prompt target), shows measured timings. |
+| `comfy_templates` | Searches ComfyUI's ~650 built-in templates for what you want to make and proposes the best ones with thumbnail, inputs, download size and **readiness** (installed vs missing models with download links, missing custom nodes). Ready ones rank first. Opens them in the window or saves a copy to your workflows. |
 | `comfy_run` | **Headless** run of a saved UI workflow with prompt / seed / images / widget overrides. Converted to API format in memory; jobs are identical, input by input, to what the ComfyUI frontend sends. |
 | `comfy_result` | Waits for a job and returns per-stage timing (sampling, prompt enhancer, loading/patching overhead, cache hits, hints), output files, and for videos a contact sheet + audio level. `prompt_id: "latest"` also reads jobs started with Run in the window. |
-| `/comfy status \| switch \| workflows \| setup \| run` | Quick control from any chat. |
+| `/comfy status \| switch \| workflows \| templates <query> \| setup \| run` | Quick control from any chat. |
 | Skill `comfy-live:session` | The recipe and verified pitfalls for driving ComfyUI in the pane, layout-preserving workflow JSON edits, and a method for finding slow stages. |
 
 ## Visible vs headless
@@ -61,6 +62,7 @@ plugin/
   plugin.yaml           manifest + settings schema
   __init__.py           tools, /comfy, session hook (instructions + session title), bundled skill
   core.py               discovery, workflow describe/run, results, timing (Hermes-independent)
+  templates.py          template search, readiness check, save as user workflow
   comfy_client.py       stdlib HTTP client for the ComfyUI API
   convert_bridge.py     UI→API conversion via comfy-cli + two fixes it needs (subgraph socket values, viewer nodes)
   desktop/plugin.js     desktop half: sidebar entry + "New ComfyUI session"
@@ -77,6 +79,8 @@ but not yet verified — reports welcome.
 
 Known limitation: naming the session after the first request uses a Hermes internal (`hermes_state_registry`), which the
 validator flags as a private import; if a Hermes update changes it, only the session title falls back to Hermes' default.
+Likewise the instant pane opening uses `tools.desktop_ui` / `gateway.session_context`; if they change, the agent opens
+the pane itself (a few seconds slower).
 
 ## License
 

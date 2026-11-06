@@ -49,3 +49,12 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
 ## Repo hygiene
 - Two plugins registering the same tool names cannot both be enabled — disable the old one before enabling a rename.
 - Scan new public repos for personal refs (`grep -rniE "<username>|<project>|<port>"`) before publishing.
+
+## Fast session start
+- Port probing: on Windows a refused localhost connect takes ~2 s, so a sequential HTTP probe of 4 closed ports cost
+  8 s. `comfy_client.port_open` (0.3 s TCP check) + `alive_many` (parallel) brought `comfy_instances` to ~0.3 s.
+- The kickoff hook resolves the instance and opens the pane itself: `tools.desktop_ui.emit("preview.open",
+  {"url", "label"})` routes to the window running the turn (needs `HERMES_UI_SESSION_ID` in the session env; check
+  `desktop_ui.available()`). The model then gets the facts and only does one `drive_preview elements` before the card.
+  Skills load on the first real request, not at kickoff. Private imports again - keep it best-effort with a fallback.
+- Desktop half: read the motto in parallel with `session.new`, cache it, warm the cache at register.

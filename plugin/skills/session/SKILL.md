@@ -1,7 +1,7 @@
 ---
 name: session
 description: "Use when driving ComfyUI live in the Hermes preview pane (Comfy Live)."
-version: 0.1.1
+version: 0.2.0
 author: dotroza
 license: MIT
 metadata:
@@ -31,6 +31,9 @@ through the API can never appear in the open window. In a ComfyUI session never 
 says "headless" or "API". Small models tend to pick the shortest tool — follow the recipe instead.
 
 ## Procedure: open a ComfyUI session
+In the desktop app the plugin does steps 1–2 itself at the kickoff (it checks ComfyUI, opens the pane and hands you the
+instance facts), so the opening turn is just step 3 + the card. Load this skill on the first real request. Without the
+plugin's kickoff facts, do all steps:
 1. `comfy_instances`.
    - `action_required` in the result → do exactly that and stop. None running → reply only:
      "No ComfyUI backend is running. Please start your ComfyUI backend, then tell me when it is up."
@@ -50,6 +53,19 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
   overlay). Read the `delta` each click/type returns instead of re-scanning.
 - Wiring changes (drag a link, add a node) cannot be done in the pane: edit the workflow JSON on disk
   (`references/workflow-json-editing.md`, back up first), then close + reopen the pane.
+
+## Procedure: propose a template as a starting point
+When the user describes something new ("I want to turn a photo into a 3D model", "a video with sound"), or none of
+their workflows fits:
+1. `comfy_templates action=search query="<task in a few words>"` (add `media` if obvious). Results come with a
+   thumbnail, inputs, download size and readiness (`ready`, `missing_models`, `missing_node_types`).
+2. Propose 2–4 options: one line each — title, what it does, ready or what's missing (model names + size), and show
+   the thumbnails with `MEDIA:<thumbnail_path>`. Prefer ready ones; say clearly what the others would need.
+3. On the user's choice, open it in the window (`references/pane-recipe.md`, step 7). It opens as a new unsaved tab with
+   the template's example inputs; then adapt it with them (prompt, images) as usual.
+4. Missing models or custom nodes: give the folder + download link; never download or install without the user's OK.
+5. To keep it: `comfy_templates action=save name=<template>` (copy in the `templates` workflows folder — also makes it
+   usable with `comfy_run`), or let the user save the tab.
 
 ## Procedure: headless run (user asked for it, or no window wanted)
 1. `comfy_workflows action=describe workflow=<name>` → subgraph controls, LoadImage nodes, prompt target.
