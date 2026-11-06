@@ -1,6 +1,6 @@
-"""Core logic of the comfy-live plugin. No Hermes imports at module level, so it runs and tests standalone.
+"""Core logic of the comfy-recipe plugin. No Hermes imports at module level, so it runs and tests standalone.
 
-Settings come from Hermes (Settings -> Plugins -> Comfy Live, i.e. ``plugins.entries.comfy-live.settings``)
+Settings come from Hermes (Settings -> Plugins -> Comfy Recipe, i.e. ``plugins.entries.comfy-recipe.settings``)
 and are pushed in by ``__init__.py`` through ``configure()``; standalone use falls back to the defaults below.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 from . import comfy_client as cc
 
 PLUGIN_DIR = Path(__file__).resolve().parent
-CLIENT_ID = "hermes-comfy-live-" + uuid.uuid4().hex[:8]
+CLIENT_ID = "hermes-comfy-recipe-" + uuid.uuid4().hex[:8]
 OBJECT_INFO_TTL = 600
 PROBE_PORTS = [8188, 8189, 8190, 8000]
 NO_BACKEND_MESSAGE = "No ComfyUI backend is running. Please start your ComfyUI backend, then tell me when it is up."
@@ -52,7 +52,7 @@ def _hermes_home() -> Path:
 
 
 # Runtime data lives outside the plugin folder: never committed, never scanned as plugin code.
-DATA = _hermes_home() / "plugin-data" / "comfy-live"
+DATA = _hermes_home() / "plugin-data" / "comfy-recipe"
 STATE = DATA / "instances.json"
 RUNS = DATA / "runs.jsonl"
 TIMINGS = DATA / "timings.jsonl"
@@ -267,7 +267,7 @@ def find_converter(refresh: bool = False) -> dict:
             return {"python": py, "ok": True}
     return {"ok": False, "tried": tried,
             "hint": "Headless runs need comfy-cli: `pip install comfy-cli` (or `pipx install comfy-cli`), or set "
-                    "converter_python in Settings -> Plugins -> Comfy Live. Visible sessions work without it."}
+                    "converter_python in Settings -> Plugins -> Comfy Recipe. Visible sessions work without it."}
 
 
 def _convert(inst: dict, wf: dict, host_overrides: list[dict]) -> dict:
@@ -433,7 +433,7 @@ def run(workflow: str, prompt: str | None = None, overrides: list[dict] | None =
         return summary | {"dry_run": True, "api_prompt_path": str(p)}
     # embed the UI workflow like the browser does, so output PNGs can be dragged back into ComfyUI
     pid, node_errors = cc.queue_prompt(inst["url"], api, CLIENT_ID,
-                                       {"extra_pnginfo": {"workflow": wf}, "comfy_usage_source": "hermes-comfy-live"})
+                                       {"extra_pnginfo": {"workflow": wf}, "comfy_usage_source": "hermes-comfy-recipe"})
     if node_errors:
         summary["warning"] = ("Partial run: these output nodes failed validation and will NOT execute: "
                               + json.dumps({k: [e.get("message") for e in v.get("errors", [])] for k, v in node_errors.items()})[:1500])
@@ -592,7 +592,7 @@ def result(prompt_id: str, wait_s: int = 600, instance: str | None = None) -> di
     timing = _timing(inst, h)
     err = next((m[1] for m in h.get("status", {}).get("messages", []) if m[0] == "execution_error"), None)
     extra = (h.get("prompt") or [None] * 4)[3] or {}
-    source = "comfy-live headless run" if str(extra.get("client_id", "")).startswith("hermes-comfy-live") else "ComfyUI window / other client"
+    source = "comfy-recipe headless run" if str(extra.get("client_id", "")).startswith("hermes-comfy-recipe") else "ComfyUI window / other client"
     rec = {"prompt_id": prompt_id, "status": status, "instance": inst["name"], "queued_by": source, "timing": timing,
            "outputs": [o for o in outputs if o.get("type") == "output"] or outputs}
     if err:

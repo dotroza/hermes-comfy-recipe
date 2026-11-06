@@ -1,7 +1,7 @@
 /**
- * Comfy Live — desktop half (Hermes desktop app).
+ * Comfy Recipe — desktop half (Hermes desktop app).
  *
- * Adds a "Comfy Live" sidebar entry (under Kanban) + a "New ComfyUI session" palette command. Both open a fresh chat
+ * Adds a "Comfy Recipe" sidebar entry (under Kanban) + a "New ComfyUI session" palette command. Both open a fresh chat
  * and send a one-line kickoff ("[ComfyUI session]" + optional motto from the plugin settings). The Python half's
  * pre_llm_call hook adds the real instructions model-side; the agent then opens ComfyUI in the PREVIEW PANE (the browser
  * pane it can click/type in via drive_preview) and works there by hand while the user watches or steps in.
@@ -15,13 +15,13 @@ import { PALETTE_AREA, ROUTES_AREA, SIDEBAR_NAV_AREA, haptic, host } from '@herm
 import { useEffect } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
-const ID = 'comfy-live'
-const PAGE_PATH = '/comfy-live'
+const ID = 'comfy-recipe'
+const PAGE_PATH = '/comfy-recipe'
 const MARKER = '[ComfyUI session]'
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-// Motto from the agent-side settings (Settings -> Plugins -> Comfy Live). Read in parallel with opening the chat,
+// Motto from the agent-side settings (Settings -> Plugins -> Comfy Recipe). Read in parallel with opening the chat,
 // remembered after the first read (refreshed in the background), so it never delays the session.
 let cachedMotto = null
 
@@ -48,7 +48,7 @@ async function startComfySession(ctx) {
   const mottoP = readMotto() // in parallel with opening the chat
   const res = await ctx.runAction('session.new')
   if (!res || res.ok === false) {
-    host.notify({ kind: 'error', message: `Comfy Live: could not open a new chat (${res && res.reason})` })
+    host.notify({ kind: 'error', message: `Comfy Recipe: could not open a new chat (${res && res.reason})` })
     return
   }
   const motto = await mottoP
@@ -58,7 +58,7 @@ async function startComfySession(ctx) {
     if (host.composer.submit(null, kickoff)) return
     await sleep(100)
   }
-  host.notify({ kind: 'warning', message: 'Comfy Live: chat opened, but the kickoff could not be sent — type “[ComfyUI session]”.' })
+  host.notify({ kind: 'warning', message: 'Comfy Recipe: chat opened, but the kickoff could not be sent — type “[ComfyUI session]”.' })
 }
 
 let starting = false
@@ -81,7 +81,7 @@ function StartComfyPage({ ctx }) {
 
 export default {
   id: ID,
-  name: 'Comfy Live',
+  name: 'Comfy Recipe',
   register(ctx) {
     void fetchMotto() // warm the cache at app start
     ctx.register({
@@ -90,7 +90,7 @@ export default {
       data: {
         id: `${ID}.newSession`,
         label: 'New ComfyUI session',
-        keywords: ['comfy', 'comfyui', 'comfy live', 'image', 'video', 'generate', 'workflow'],
+        keywords: ['comfy', 'comfyui', 'comfy recipe', 'image', 'video', 'generate', 'workflow'],
         run: () => startComfySession(ctx)
       }
     })
@@ -104,7 +104,7 @@ export default {
       id: 'nav',
       area: SIDEBAR_NAV_AREA,
       order: 60, // Kanban is 50 -> directly under it
-      data: { codicon: 'wand', label: 'Comfy Live', path: PAGE_PATH }
+      data: { codicon: 'beaker', label: 'Comfy Recipe', path: PAGE_PATH }
     })
   }
 }

@@ -1,11 +1,11 @@
-name: comfy-live
+name: comfy-recipe
 version: "0.2.0"
 description: >
-  Comfy Live: the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
+  Comfy Recipe: the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
   clicks Run - while you watch or step in. Plus headless runs of saved UI workflows (subgraphs included,
   .json never rewritten) with a per-stage timing breakdown, video contact sheets and a timing log.
 author: dotroza
-homepage: https://github.com/dotroza/hermes-comfy-live
+homepage: https://github.com/dotroza/hermes-comfy-recipe
 license: MIT
 provides_tools:
   - comfy_instances
@@ -21,7 +21,7 @@ config_schema:
     default: ""
     description: >
       Name of your own ComfyUI skill (paths, workflow catalog, model notes). Loaded in every ComfyUI session
-      after the generic comfy-live:session skill, and wins where they differ. Leave empty if you have none.
+      after the generic comfy-recipe:session skill, and wins where they differ. Leave empty if you have none.
   motto:
     type: string
     default: ""

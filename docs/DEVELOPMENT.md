@@ -1,4 +1,4 @@
-# Developing Comfy Live — Hermes mechanisms that matter
+# Developing Comfy Recipe — Hermes mechanisms that matter
 
 Verified while building the plugin (Hermes desktop, Nov 2026). Read before changing the Python half, desktop half or packaging.
 

@@ -1,6 +1,6 @@
-# Comfy Live — a Hermes Agent plugin for ComfyUI
+# Comfy Recipe — a Hermes Agent plugin for ComfyUI
 
-**The agent works in your ComfyUI window, next to the chat.** Click **Comfy Live** in the Hermes sidebar: a new chat
+**The agent works in your ComfyUI window, next to the chat.** Click **Comfy Recipe** in the Hermes sidebar: a new chat
 opens, ComfyUI appears in the preview pane on the right, and the agent opens workflows, types prompts and clicks Run
 *by hand* while you watch — or step in yourself to show it what you mean. Any model can follow it (tested with a local
 27B model), because the session runs on a literal step-by-step recipe instead of clever shortcuts.
@@ -12,14 +12,14 @@ where the time goes.
 
 | | |
 |---|---|
-| **Comfy Live** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin itself finds the running ComfyUI and opens it in the pane at the start of the turn (no model round trips), then the agent reports instance, GPU and active workflow. The session is named after your first real request. |
+| **Comfy Recipe** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin itself finds the running ComfyUI and opens it in the pane at the start of the turn (no model round trips), then the agent reports instance, GPU and active workflow. The session is named after your first real request. |
 | `comfy_instances` | Finds ComfyUI installs: StabilityMatrix (incl. portable), ComfyUI Desktop, servers on ports 8188–8190 / 8000 and any `extra_urls`. Switches automatically if the remembered one is down; if none is running it just asks you to start yours — it never starts anything. |
 | `comfy_workflows` | Lists saved workflows, describes one (subgraph controls, Load Image nodes, prompt target), shows measured timings. |
 | `comfy_templates` | Searches ComfyUI's ~650 built-in templates for what you want to make and proposes the best ones with thumbnail, inputs, download size and **readiness** (installed vs missing models with download links, missing custom nodes). Ready ones rank first. Opens them in the window or saves a copy to your workflows. |
 | `comfy_run` | **Headless** run of a saved UI workflow with prompt / seed / images / widget overrides. Converted to API format in memory; jobs are identical, input by input, to what the ComfyUI frontend sends. |
 | `comfy_result` | Waits for a job and returns per-stage timing (sampling, prompt enhancer, loading/patching overhead, cache hits, hints), output files, and for videos a contact sheet + audio level. `prompt_id: "latest"` also reads jobs started with Run in the window. |
 | `/comfy status \| switch \| workflows \| templates <query> \| setup \| run` | Quick control from any chat. |
-| Skill `comfy-live:session` | The recipe and verified pitfalls for driving ComfyUI in the pane, layout-preserving workflow JSON edits, and a method for finding slow stages. |
+| Skill `comfy-recipe:session` | The recipe and verified pitfalls for driving ComfyUI in the pane, layout-preserving workflow JSON edits, and a method for finding slow stages. |
 
 ## Visible vs headless
 
@@ -30,10 +30,10 @@ batches, seed sweeps and exact timing when you ask for "headless".
 ## Install
 
 ```bash
-hermes plugins install dotroza/hermes-comfy-live     # or clone and link <repo>/plugin into your Hermes plugins folder
-hermes plugins enable comfy-live
+hermes plugins install dotroza/hermes-comfy-recipe     # or clone and link <repo>/plugin into your Hermes plugins folder
+hermes plugins enable comfy-recipe
 ```
-Then fully restart Hermes. In the desktop app: **Ctrl/⌘+K → Reload desktop plugins**, and enable **Comfy Live** under
+Then fully restart Hermes. In the desktop app: **Ctrl/⌘+K → Reload desktop plugins**, and enable **Comfy Recipe** under
 **Settings → Plugins** (the desktop half of a plugin is off by default).
 
 Requirements
@@ -42,7 +42,7 @@ Requirements
   separate process; this repo contains none of its (GPL-3.0) code. Visible sessions work without it.
 - Video checks: `ffmpeg` / `ffprobe` on PATH (optional).
 
-## Settings (Settings → Plugins → Comfy Live)
+## Settings (Settings → Plugins → Comfy Recipe)
 
 | Key | Default | Use |
 |---|---|---|
@@ -53,7 +53,7 @@ Requirements
 | `converter_python` | auto | A Python with comfy-cli, if auto-detection misses it. |
 
 `/comfy setup` shows what is detected. Runtime data (instance list, object_info cache, run and timing logs, contact
-sheets) lives in `<hermes home>/plugin-data/comfy-live/`, never in the plugin folder.
+sheets) lives in `<hermes home>/plugin-data/comfy-recipe/`, never in the plugin folder.
 
 ## Layout
 
@@ -66,7 +66,7 @@ plugin/
   comfy_client.py       stdlib HTTP client for the ComfyUI API
   convert_bridge.py     UI→API conversion via comfy-cli + two fixes it needs (subgraph socket values, viewer nodes)
   desktop/plugin.js     desktop half: sidebar entry + "New ComfyUI session"
-  skills/session/       the bundled comfy-live:session skill
+  skills/session/       the bundled comfy-recipe:session skill
 docs/DEVELOPMENT.md     how the plugin hooks into Hermes (reload rules, hook, titles, settings, endpoints)
 ```
 

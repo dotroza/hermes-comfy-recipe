@@ -1,6 +1,6 @@
 ---
 name: session
-description: "Use when driving ComfyUI live in the Hermes preview pane (Comfy Live)."
+description: "Use when driving ComfyUI live in the Hermes preview pane (Comfy Recipe)."
 version: 0.2.0
 author: dotroza
 license: MIT
@@ -10,12 +10,12 @@ metadata:
     related_skills: [comfyui]
 ---
 
-# Comfy Live — drive ComfyUI in the window next to the chat
+# Comfy Recipe — drive ComfyUI in the window next to the chat
 
 ## When to Use
-- A chat that starts with `[ComfyUI session]` (opened from the **Comfy Live** sidebar entry): the user wants to SEE
+- A chat that starts with `[ComfyUI session]` (opened from the **Comfy Recipe** sidebar entry): the user wants to SEE
   ComfyUI work in the preview pane on the right and steer it, not just receive files.
-- Any request to run, edit, inspect or debug a ComfyUI workflow with the `comfy_*` tools of the comfy-live plugin.
+- Any request to run, edit, inspect or debug a ComfyUI workflow with the `comfy_*` tools of the comfy-recipe plugin.
 - If the user has a personal ComfyUI skill (paths, workflow catalog, model notes), load it too — it overrides the
   generic defaults here.
 

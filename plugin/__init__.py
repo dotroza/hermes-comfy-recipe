@@ -1,7 +1,7 @@
-"""Comfy Live - Hermes plugin to work in a local ComfyUI, visibly in the preview pane or headless.
+"""Comfy Recipe - Hermes plugin to work in a local ComfyUI, visibly in the preview pane or headless.
 
 Tools: comfy_instances, comfy_workflows, comfy_templates, comfy_run, comfy_result.  Command: /comfy.
-Hook: pre_llm_call (ComfyUI-session instructions, model-side only).  Skill: comfy-live:session.
+Hook: pre_llm_call (ComfyUI-session instructions, model-side only).  Skill: comfy-recipe:session.
 Logic lives in core.py (Hermes-independent); this file wires schemas, settings, the hook and the command.
 """
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 from . import core
 from . import templates
 
-TOOLSET = "comfy_live"
-SKILL = "comfy-live:session"
+TOOLSET = "comfy_recipe"
+SKILL = "comfy-recipe:session"
 SETTING_KEYS = ("personal_skill", "motto", "extra_urls", "stabilitymatrix_dirs", "converter_python")
 _CTX = None
 
@@ -101,7 +101,7 @@ SCHEMAS = {
         "name": "comfy_run",
         "description": "HEADLESS run: queue a saved ComfyUI UI workflow (subgraphs supported) through the API, WITHOUT modifying "
                        "the .json file. The job does NOT appear in any open ComfyUI window. In a [ComfyUI session] do NOT use "
-                       "this tool - work in the window with drive_preview (skill comfy-live:session) - unless the user explicitly "
+                       "this tool - work in the window with drive_preview (skill comfy-recipe:session) - unless the user explicitly "
                        "asks for a headless/API run. Applies: prompt (auto-targets the main prompt input), overrides "
                        "[{node: id|title|type, widget: name|label, value}], images {LoadImage node id|title: local file path "
                        "(uploaded) or existing input filename}, seed (int or 'random'). dry_run=true converts and validates "
@@ -165,14 +165,14 @@ def _setup_text() -> str:
     env = core.environment_report()
     conv = env["converter"]
     lines = [
-        "Comfy Live setup",
+        "Comfy Recipe setup",
         f"  data folder        : {env['data_dir']}",
         f"  personal skill     : {s.get('personal_skill') or '(none)'}",
         f"  extra URLs         : {', '.join(core.SETTINGS.get('extra_urls') or []) or '(none)'}",
         f"  StabilityMatrix    : {', '.join(core.SETTINGS.get('stabilitymatrix_dirs') or []) or '(auto)'}",
         f"  converter (headless): {conv['python'] if conv['ok'] else 'NOT FOUND - ' + conv['hint']}",
         f"  ffmpeg (video checks): {'yes' if env['ffmpeg'] else 'no'}",
-        "Change these in Settings -> Plugins -> Comfy Live (or plugins.entries.comfy-live.settings in config.yaml).",
+        "Change these in Settings -> Plugins -> Comfy Recipe (or plugins.entries.comfy-recipe.settings in config.yaml).",
     ]
     return "\n".join(lines)
 
@@ -246,7 +246,7 @@ CARD = (
     "to show me what you want. **What should I do first?**"
 )
 
-MOTTO_NOTE = ("[comfy-live] The user just opened a ComfyUI session from the Comfy Live sidebar entry. Any text after the "
+MOTTO_NOTE = ("[comfy-recipe] The user just opened a ComfyUI session from the Comfy Recipe sidebar entry. Any text after the "
               "\"[ComfyUI session]\" marker in their message is only a motto - it is NOT a request, do not comment on it.\n")
 
 
@@ -292,7 +292,7 @@ def _session_start(personal_skill: str) -> str:
 
 
 SESSION_RULES = (
-    "[comfy-live] RULE for this whole session: do every change and every run BY HAND in that ComfyUI window with "
+    "[comfy-recipe] RULE for this whole session: do every change and every run BY HAND in that ComfyUI window with "
     "drive_preview (type the prompt into the textarea, click Run) so I see it happen - follow references/pane-recipe.md of "
     f"the {SKILL} skill. Never use comfy_run here unless I say \"headless\" - its jobs do not show up in the window. After "
     "clicking Run, use comfy_result with prompt_id \"latest\" (read-only) for the timing and output files. Never start "
@@ -306,7 +306,7 @@ SESSION_RULES = (
 def _rules(personal_skill: str, first_request: bool) -> str:
     if not first_request:
         return SESSION_RULES
-    return (SESSION_RULES + "\n[comfy-live] Before your first action for this request, load " + _skills_to_load(personal_skill)
+    return (SESSION_RULES + "\n[comfy-recipe] Before your first action for this request, load " + _skills_to_load(personal_skill)
             + ", and follow the recipe step by step.")
 
 
@@ -393,6 +393,6 @@ def register(ctx):
         ctx.register_tool(name=name, toolset=TOOLSET, schema=schema, handler=_wrap(HANDLERS[name]), emoji="🎨")
     ctx.register_hook("pre_llm_call", _pre_llm_call)
     ctx.register_skill("session", Path(__file__).parent / "skills" / "session" / "SKILL.md",
-                       description="Use when driving ComfyUI live in the Hermes preview pane (Comfy Live).")
+                       description="Use when driving ComfyUI live in the Hermes preview pane (Comfy Recipe).")
     ctx.register_command("comfy", handler=_command, description="ComfyUI: status, switch, workflows, setup, run",
                          args_hint="status|switch|workflows|setup|run")
