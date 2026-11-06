@@ -1,7 +1,7 @@
 ---
 name: session
 description: "Use when driving ComfyUI live in the Hermes preview pane (Comfy Live)."
-version: 0.1.0
+version: 0.1.1
 author: dotroza
 license: MIT
 metadata:
@@ -53,11 +53,15 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
 
 ## Procedure: headless run (user asked for it, or no window wanted)
 1. `comfy_workflows action=describe workflow=<name>` → subgraph controls, LoadImage nodes, prompt target.
-   Only `connected: true` LoadImage nodes feed the graph; key `images` on those ids.
+   Only `connected: true` LoadImage nodes feed the graph (for a subgraph: the first is `image_1`, usually the edit
+   target, then `image_2`… in listed order). `connected: false` ones are loose and never run, even if they already hold
+   the right file. Key `images` on the connected node ids. When the user names an input by description ("the
+   footballer"), match it against these nodes and confirm with vision_analyze before wiring it.
 2. `comfy_run workflow=<name> prompt="…" [seed] [images {node: path}] [overrides [{node, widget, value}]]`
    (`dry_run=true` first for a new workflow). Runs the SAVED file — unsaved tab edits are not included.
 3. `comfy_result prompt_id=<id>` (call again while running) → per-stage timing, outputs, video contact sheet + audio level.
    `cached_nodes` with no sampling = ComfyUI reused a previous result: change seed/prompt.
+   `warning: Partial run` from comfy_run = some output nodes failed validation, the others still ran.
 4. Vision-check every output before reporting it. `comfy_workflows action=timings` before proposing speed changes.
 
 ## Procedure: diagnose a slow workflow
