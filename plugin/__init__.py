@@ -1,6 +1,8 @@
 """Comfy Recipe - Hermes plugin to work in a local ComfyUI, visibly in the preview pane or headless.
 
-Tools: comfy_instances, comfy_workflows, comfy_templates, comfy_run, comfy_result.  Command: /comfy.
+Tools: comfy_setup, comfy_instances, comfy_workflows, comfy_templates, comfy_run, comfy_result.  Command: /comfy.
+First run: the kickoff asks whether to install Comfy Recipe's OWN ComfyUI (installer.py, uv-based, separate from any
+other ComfyUI on the machine) or to use an existing one.
 Hook: pre_llm_call (ComfyUI-session instructions, model-side only).  Skill: comfy-recipe:session.
 Logic lives in core.py (Hermes-independent); this file wires schemas, settings, the hook and the command.
 """
@@ -13,6 +15,7 @@ from pathlib import Path
 
 from . import core
 from . import templates
+from . import installer
 
 TOOLSET = "comfy_recipe"
 SKILL = "comfy-recipe:session"
@@ -53,6 +56,27 @@ def _wrap(fn):
 
 
 SCHEMAS = {
+    "comfy_setup": {
+        "name": "comfy_setup",
+        "description": "Comfy Recipe's OWN ComfyUI (separate from any other ComfyUI on the machine). action=check: facts for the "
+                       "first-run questions (GPUs and whether to ask which one, default folder, free disk, existing ComfyUI "
+                       "installs with model folders). action=install (dir, gpu, share_models_from=[install names]) starts the "
+                       "download/install in the BACKGROUND (about 6 GB, 5-20 min) and returns at once. action=status "
+                       "(wait_s up to 900) waits until the current step finishes and returns progress + log tail - call it "
+                       "repeatedly until state is done or error. action=start starts the installed ComfyUI and waits until it "
+                       "answers (only ever this plugin's own install). action=stop stops it. action=use_existing = the user "
+                       "prefers a ComfyUI they already have. action=check_dir dir=<path> checks a folder the user typed (writable, "
+                       "free space, empty, not cloud-synced) before installing. action=reset forgets the choice (no files deleted).",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["check", "check_dir", "install", "status", "start", "stop", "use_existing", "reset"]},
+            "dir": {"type": "string", "description": "install / check_dir: folder for the new ComfyUI (default from check)."},
+            "allow_synced": {"type": "boolean", "description": "install: the user insists on a cloud-synced folder."},
+            "gpu": {"type": ["integer", "string"], "description": "install: GPU index the user chose (required when check says ask_gpu)."},
+            "share_models_from": {"type": "array", "items": {"type": "string"},
+                                  "description": "install: names (from check.existing_installs) whose models the new ComfyUI may use."},
+            "wait_s": {"type": "integer", "description": "status/start: max seconds to wait."}},
+            "required": ["action"]},
+    },
     "comfy_instances": {
         "name": "comfy_instances",
         "description": "List the ComfyUI installs found on this machine (StabilityMatrix, ComfyUI Desktop, servers on standard ports "
@@ -143,7 +167,29 @@ def _workflows(p: dict):
     return {"instance": inst["name"], "workflows": names}
 
 
+def _setup(p: dict):
+    a = p.get("action", "check")
+    if a == "check":
+        return core.setup_check()
+    if a == "install":
+        return core.setup_install(p.get("dir"), p.get("gpu"), p.get("share_models_from"), bool(p.get("allow_synced")))
+    if a == "check_dir":
+        return installer.check_dir(p.get("dir") or installer.default_dir())
+    if a == "status":
+        return core.setup_status(int(p.get("wait_s") or 0))
+    if a == "start":
+        return core.setup_start(int(p.get("wait_s") or 180))
+    if a == "stop":
+        return core.setup_stop()
+    if a == "use_existing":
+        return core.setup_use_existing()
+    if a == "reset":
+        return core.setup_reset()
+    raise ValueError(f"unknown action {a!r}")
+
+
 HANDLERS = {
+    "comfy_setup": _setup,
     "comfy_instances": lambda p: core.instances(p.get("action", "list"), p.get("name")),
     "comfy_workflows": _workflows,
     "comfy_templates": lambda p: (
@@ -156,7 +202,7 @@ HANDLERS = {
     "comfy_result": lambda p: core.result(p["prompt_id"], int(p.get("wait_s", 600)), p.get("instance")),
 }
 
-USAGE = ("/comfy status | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy setup | "
+USAGE = ("/comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy setup | "
          "/comfy run <workflow> :: <prompt>   (headless; ask Hermes for the result)")
 
 
@@ -167,6 +213,7 @@ def _setup_text() -> str:
     lines = [
         "Comfy Recipe setup",
         f"  data folder        : {env['data_dir']}",
+        f"  own ComfyUI        : {core.setup_state()}",
         f"  personal skill     : {s.get('personal_skill') or '(none)'}",
         f"  extra URLs         : {', '.join(core.SETTINGS.get('extra_urls') or []) or '(none)'}",
         f"  StabilityMatrix    : {', '.join(core.SETTINGS.get('stabilitymatrix_dirs') or []) or '(auto)'}",
@@ -194,6 +241,12 @@ def _command(raw_args: str) -> str:
             return head + ("\n".join(lines) or "(none found - add your server URL to extra_urls, see /comfy setup)")
         if args.startswith("setup"):
             return _setup_text()
+        if args.startswith("start"):
+            r = core.setup_start(180)
+            return f"Comfy Recipe ComfyUI: {'running' if r['running'] else 'still starting'} at {r['url']}"
+        if args.startswith("stop"):
+            r = core.setup_stop()
+            return "Comfy Recipe ComfyUI stopped." if r.get("stopped") else r.get("note", "not running")
         if args.startswith("switch"):
             name = args.split(None, 1)[1].strip()
             core.instances("switch", name)
@@ -246,6 +299,9 @@ CARD = (
     "to show me what you want. **What should I do first?**"
 )
 
+CARD_LATER = ("The card below is ONLY for the moment ComfyUI is open in the pane - NOT for this first answer, which is "
+              "the short explanation + the question(s).\n")
+
 MOTTO_NOTE = ("[comfy-recipe] The user just opened a ComfyUI session from the Comfy Recipe sidebar entry. Any text after the "
               "\"[ComfyUI session]\" marker in their message is only a motto - it is NOT a request, do not comment on it.\n")
 
@@ -263,11 +319,89 @@ def _open_pane_now(url: str) -> bool:
         return False
 
 
+FIRST_RUN = (
+    "FIRST RUN of Comfy Recipe: no ComfyUI has been set up for it yet. The user may never have used ComfyUI. Facts from "
+    "the plugin (comfy_setup check): {facts}\n"
+    "Do this, in plain friendly words, no jargon:\n"
+    "1. In 3-4 short lines: ComfyUI is the free app that makes images/videos from building blocks; Comfy Recipe installs "
+    "its OWN copy for you, separate from anything else on the computer (other ComfyUI installs keep working and can run "
+    "at the same time); it downloads about {dl} GB and needs about {need} GB of disk ({free} GB free); it takes 5-20 "
+    "minutes and nothing else needs to be installed.\n"
+    "2. Ask with ONE clarify call (all questions in one form, recommended option first): "
+    "(a) 'Install a new ComfyUI just for Comfy Recipe (recommended)' vs 'Use a ComfyUI I already have'; "
+    "{gpu_q}{models_q}({folder_letter}) 'Where should the new ComfyUI be installed? (only used for a new install)' with "
+    "{dir_choices} as choices; the form's Other row lets them type any full folder path. "
+    "Without a clarify tool, ask the same in one short numbered message and stop.\n"
+    "3. New install: if the user typed their own folder, first comfy_setup action=check_dir dir=<it>; if not ok or "
+    "synced_by is set, tell them why in one line and ask again. Then comfy_setup action=install with dir, gpu{share_arg}. Then call comfy_setup action=status wait_s=300 "
+    "again and again; after each finished step tell the user ONE short line (step x/7 and what it was); on error show the "
+    "error and the log tail, and suggest a fix. When state is done: comfy_setup action=start, then desktop_preview open "
+    "its url (label ComfyUI), ONE drive_preview elements call with max 5, then the card below, then this tip: 'Bring your "
+    "workflows: drag a workflow .json (or an image made by ComfyUI) from your files into the ComfyUI window - the whole "
+    "graph opens exactly as saved; save it with Ctrl+S to keep it in the Workflows list.'\n"
+    "   Existing ComfyUI: comfy_setup action=use_existing, then follow its result (it may say no backend is running).\n"
+    "Do not open the preview pane before ComfyUI runs. Never install anything else or download models in this step.\n"
+)
+
+INSTALLING = ("Comfy Recipe's own ComfyUI is being installed right now (started earlier): {facts}. Tell the user in one "
+              "line, then keep calling comfy_setup action=status wait_s=300, one short line per finished step, and when "
+              "done: comfy_setup action=start, desktop_preview open its url (label ComfyUI), ONE drive_preview elements "
+              "call with max 5, then the card below.\n")
+
+INSTALL_FAILED = ("The last install of Comfy Recipe's own ComfyUI failed: {facts}. Explain the error simply and ask the user "
+                  "whether to retry (comfy_setup action=install with the same dir) or use an existing ComfyUI "
+                  "(comfy_setup action=use_existing). Do not open the preview pane.\n")
+
+STOPPED = ("Comfy Recipe's own ComfyUI is installed but not running. Call comfy_setup action=start (it waits until ComfyUI "
+           "answers, usually 15-60 s), then desktop_preview open its url (label ComfyUI), then ONE drive_preview elements "
+           "call with max 5 - its result carries the page title '<workflow name> - ComfyUI'. Do NOT inspect the workflow "
+           "now and do not load skills yet. Then wait for my instructions.\n")
+
+
+def _first_run_text() -> str:
+    c = core.setup_check()
+    ex = [e for e in c["existing_installs"] if e.get("model_folders")]
+    letters = iter("abcd")
+    next(letters)  # (a) = install vs existing
+    gpu_q = (f"({next(letters)}) which GPU ComfyUI should use - one choice per GPU from facts.gpus as 'GPU <index>: <name> (<vram> GB)'; "
+             "say the other GPU stays free for games/other apps; " if c["ask_gpu"] else "")
+    models_q = (f"({next(letters)}) 'Also use the models already in <launcher> ComfyUI (nothing is copied, new downloads go into the new "
+                "install) (recommended)' vs 'Start with an empty models folder' - one line per install in "
+                "facts.existing_installs; " if ex else "")
+    share_arg = ", share_models_from=[the chosen existing_installs names]" if ex else ""
+    dd, alt = c["default_dir_check"], c.get("alternative_dir")
+    if dd.get("synced_by") and alt:
+        dir_choices = (f"'{alt}' (recommended) first, then '{c['default_dir']}' - say the Documents folder is synced by "
+                       f"{dd['synced_by']}, so about 15 GB would be uploaded")
+    elif not dd["ok"] and alt:
+        dir_choices = f"'{alt}' (recommended) - the Documents folder can't be used: {dd.get('problem')}"
+    else:
+        dir_choices = f"'{c['default_dir']}' (recommended)"
+    return FIRST_RUN.format(dir_choices=dir_choices, facts=json.dumps(c, ensure_ascii=False), dl=c["download_gb"], need=c["disk_needed_gb"],
+                            free=c["disk_free_gb"], gpu_q=gpu_q, models_q=models_q, dir=c["default_dir"], share_arg=share_arg,
+                            folder_letter=next(letters))
+
+
 def _session_start(personal_skill: str) -> str:
     """Kickoff turn. The plugin already resolved the instance and (normally) opened the pane, so the model needs ONE
     tool call before the card. Skills are loaded on the first real request, not now."""
     try:
         _sync_settings()
+        phase = core.setup_state()
+    except Exception as e:
+        phase = {"phase": "first_run", "error": str(e)}
+    try:
+        if phase["phase"] == "first_run":
+            return MOTTO_NOTE + _first_run_text() + CARD_LATER + CARD
+        if phase["phase"] == "installing":
+            return MOTTO_NOTE + INSTALLING.format(facts=json.dumps(core.setup_status(0), ensure_ascii=False)) + CARD_LATER + CARD
+        if phase["phase"] == "install_failed":
+            return MOTTO_NOTE + INSTALL_FAILED.format(facts=json.dumps(phase["install"], ensure_ascii=False)[:3000])
+        if phase["phase"] == "stopped":
+            return MOTTO_NOTE + STOPPED + CARD
+    except Exception as e:
+        return MOTTO_NOTE + f"The plugin could not read its setup state ({e}). Call comfy_setup action=check and tell the user."
+    try:
         inst = core.instances("list")
     except Exception as e:
         inst = {"any_running": False, "action_required": f"Could not query ComfyUI: {e}"}
@@ -293,13 +427,17 @@ def _session_start(personal_skill: str) -> str:
 
 SESSION_RULES = (
     "[comfy-recipe] RULE for this whole session: do every change and every run BY HAND in that ComfyUI window with "
-    "drive_preview (type the prompt into the textarea, click Run) so I see it happen - follow references/pane-recipe.md of "
+    "drive_preview (type the prompt into the textarea, set images with the Load Image file button, click Run) so I see it "
+    "happen - follow references/pane-recipe.md of "
     f"the {SKILL} skill. Never use comfy_run here unless I say \"headless\" - its jobs do not show up in the window. After "
     "clicking Run, use comfy_result with prompt_id \"latest\" (read-only) for the timing and output files. Never start "
-    "ComfyUI yourself. Call drive_preview elements only when the delta returned by your last action is not enough - every "
+    "or stop any ComfyUI yourself, except Comfy Recipe's own install with comfy_setup start/stop. Call drive_preview elements only when the delta returned by your last action is not enough - every "
     "elements call flashes boxes over the whole ComfyUI page. I may also work in the window myself (open a workflow, "
     "select or edit nodes) to guide you or ask about the graph: before acting or answering, re-read the part of the "
-    "window concerned instead of assuming its earlier state."
+    "window concerned instead of assuming its earlier state. Never change a prompt, number, seed or image by editing the "
+    "workflow JSON. Never click Fit View to find a node: zoomed out, ComfyUI hides the textareas and file buttons - use "
+    "the right panel's Nodes tab -> 'Locate node on canvas' instead. Never use browser_* tools (a different, invisible "
+    "browser). If drive_preview says no window answered, ask me to click into this chat and wait."
 )
 
 

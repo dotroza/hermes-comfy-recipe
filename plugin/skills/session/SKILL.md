@@ -1,7 +1,7 @@
 ---
 name: session
 description: "Use when driving ComfyUI live in the Hermes preview pane (Comfy Recipe)."
-version: 0.2.0
+version: 0.3.0
 author: dotroza
 license: MIT
 metadata:
@@ -30,12 +30,32 @@ metadata:
 through the API can never appear in the open window. In a ComfyUI session never call `comfy_run` unless the user
 says "headless" or "API". Small models tend to pick the shortest tool — follow the recipe instead.
 
+## Comfy Recipe's own ComfyUI (first run, start, stop)
+Comfy Recipe installs and runs its OWN ComfyUI, separate from any other ComfyUI on the machine (those keep working and
+can run at the same time, e.g. on another port/GPU). The kickoff tells you the phase; `comfy_setup` does the work:
+| phase | what to do |
+|---|---|
+| first_run | Explain in 3-4 plain lines (beginner-friendly), then ONE clarify form: new install (recommended) vs existing; GPU (only if `ask_gpu`); share models of `existing_installs` (only if any); install folder (default `<Documents>/ComfyRecipe`, or `alternative_dir` first when Documents is cloud-synced; a typed path → `check_dir` first). |
+| installing | `comfy_setup action=status wait_s=300` in a loop; one short line per finished step (x/7); on `error` show the error + `log_tail` and offer a retry. |
+| stopped | `comfy_setup action=start` (waits until it answers), then open the pane. |
+| running | Normal session start (below). |
+- `comfy_setup action=install` returns at once; the install runs in the background (about 6 GB, 5-20 min; uv, Python,
+  ComfyUI latest release, PyTorch for the GPU, ComfyUI-Manager). It survives the chat ending: a later session resumes
+  with `status`.
+- Shared models: the new install READS the chosen installs' model folders via its `extra_model_paths.yaml`; nothing is
+  copied and new downloads (Manager, template models) go to its own `ComfyUI/models/`. Delete that yaml to stop sharing.
+- Moving workflows: drag a workflow `.json` (or a PNG/WebP made by ComfyUI) into the window - the graph opens exactly
+  as saved; Ctrl+S puts it in the Workflows list. Tell new users this once, after the first start.
+- `start`/`stop` only ever touch this plugin's install (pid checked). `reset` forgets the choice, deletes nothing; to
+  remove the install, the user deletes its folder.
+
 ## Procedure: open a ComfyUI session
 In the desktop app the plugin does steps 1–2 itself at the kickoff (it checks ComfyUI, opens the pane and hands you the
 instance facts), so the opening turn is just step 3 + the card. Load this skill on the first real request. Without the
 plugin's kickoff facts, do all steps:
 1. `comfy_instances`.
-   - `action_required` in the result → do exactly that and stop. None running → reply only:
+   - `action_required` in the result → do exactly that (for the plugin's own install it says `comfy_setup action=start`).
+     A user-chosen existing ComfyUI that is not running → reply only:
      "No ComfyUI backend is running. Please start your ComfyUI backend, then tell me when it is up."
      No tips on how to start it, never start it yourself, don't open the pane. When the user says it's up, redo step 1.
    - `switched` in the result → the remembered instance was down; mention the switch in one line.
@@ -51,6 +71,8 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
   graph: re-read the part of the window concerned before acting or answering — never assume its earlier state.
 - Keep `drive_preview elements` calls rare: every call flashes a box over each reachable element (the app's watch
   overlay). Read the `delta` each click/type returns instead of re-scanning.
+- Prompt, numbers, seeds and Load Image files are ALWAYS changed in the window, never through the JSON. A widget that
+  vanished after a view change is hidden by the zoom: `Nodes` tab → `Locate node on canvas` (pane-recipe step 2).
 - Wiring changes (drag a link, add a node) cannot be done in the pane: edit the workflow JSON on disk
   (`references/workflow-json-editing.md`, back up first), then close + reopen the pane.
 
@@ -87,7 +109,7 @@ enhancers running to their token cap, reference-image count, LoRA re-patching, m
 ## Rules
 - Never overwrite the user's workflow file: write a sibling copy or a `.bak-<purpose>.json` backup first, then
   report exactly which fields changed.
-- Never start, restart or stop ComfyUI yourself.
+- Never start, restart or stop a ComfyUI yourself - except Comfy Recipe's own install, through `comfy_setup start/stop`.
 - Never save a tab (Ctrl+S) or close a tab with unsaved edits unless the user asks.
 - Verify results with real tool output (vision check, ffprobe) — never just "done".
 

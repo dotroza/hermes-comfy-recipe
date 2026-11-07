@@ -3,6 +3,13 @@
 - `drive_preview` acts only while this chat is the active, non-tiled session in the app. Refused → ask the user to
   focus this chat, retry once.
 - `desktop_preview read` always works (page text, title). It omits textarea contents.
+- Zoom hides widgets: below ~20 % (e.g. after `Fit View` on a big graph) ComfyUI stops drawing node widgets; textareas
+  and file buttons leave the inventory (verified: present at 24 %, gone at 12 %). `Nodes` tab → `Locate node on canvas`
+  zooms to ~150 % and brings them back; then `click` `#graph-canvas` selects the centred node.
+- The zoom popover (`Zoom Controls`) traps the inventory (`same: N` with only its own refs) and `Escape` does not close
+  it: `click` selector `#graph-canvas`.
+- "No Hermes Desktop window answered" also appears briefly when this chat is not the focused one; it recovers once the
+  user is back in this chat.
 - `elements` returns refs that survive re-renders. With `full=true` it still answers with a delta (`same: N`).
   The list is viewport-culled: off-screen canvas nodes are missing until `Fit View`.
 - Every `elements` call makes the app strobe a box over each reachable element (watch overlay); every action boxes its

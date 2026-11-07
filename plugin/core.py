@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import comfy_client as cc
+from . import installer
 
 PLUGIN_DIR = Path(__file__).resolve().parent
 CLIENT_ID = "hermes-comfy-recipe-" + uuid.uuid4().hex[:8]
@@ -62,7 +63,8 @@ TIMINGS = DATA / "timings.jsonl"
 def _load_state() -> dict:
     if STATE.exists():
         return json.loads(STATE.read_text(encoding="utf-8"))
-    return {"active": None, "instances": {}, "learned_sm_dirs": [], "converter": None}
+    # setup: None = first run (ask the user), "managed" = Comfy Recipe's own install only, "existing" = discover others
+    return {"active": None, "instances": {}, "learned_sm_dirs": [], "converter": None, "setup": None, "managed": None}
 
 
 def _save_state(st: dict) -> None:
@@ -105,7 +107,7 @@ def _sm_installs(data_dir: Path) -> list[dict]:
 
 def _root_from_stats(stats: dict) -> str | None:
     argv = (stats or {}).get("system", {}).get("argv") or []
-    if argv and argv[0].lower().endswith("main.py"):
+    if argv and argv[0].lower().endswith("main.py") and Path(argv[0]).is_absolute():  # relative = root unknown
         return str(Path(argv[0]).parent)
     return None
 
@@ -123,7 +125,13 @@ def _sm_data_dir_of(root: str | None) -> str | None:
 def discover() -> dict:
     """Find ComfyUI installs (StabilityMatrix, ComfyUI Desktop, servers on standard/extra ports) and merge into state."""
     st = _load_state()
-    found: dict[str, dict] = {}
+    own = _managed_instance(st)
+    if st.get("setup") == "managed":  # isolated: never pick up other ComfyUI installs
+        st["instances"] = {own["name"]: own} if own else {}
+        st["active"] = own["name"] if own else None
+        _save_state(st)
+        return st
+    found: dict[str, dict] = {own["name"]: own} if own else {}
     sm_dirs = [Path(d) for d in list(SETTINGS.get("stabilitymatrix_dirs") or []) + st.get("learned_sm_dirs", [])]
     sm_dirs += _app_config_dirs("StabilityMatrix")
     for d in dict.fromkeys(sm_dirs):
@@ -183,7 +191,12 @@ def instances(action: str = "list", name: str | None = None) -> dict:
         active_url = st["instances"][st["active"]]["url"]
         running = [st["active"]] + [n for n in running if st["instances"][n]["url"] != active_url]
     out: dict = {}
-    if action != "switch" and st.get("active") not in running:
+    if st.get("setup") == "managed":
+        running = [n for n in running if n == MANAGED_NAME]
+        if not running:
+            out["action_required"] = ("Comfy Recipe's own ComfyUI is installed but not running. Call comfy_setup "
+                                      "action=start (it starts it and waits until it is ready), then continue.")
+    elif action != "switch" and st.get("active") not in running:
         if len(running) == 1:
             out["switched"] = {"from": st.get("active"), "to": running[0],
                                "reason": f"{st.get('active') or 'no instance'} was not running; "
@@ -194,7 +207,7 @@ def instances(action: str = "list", name: str | None = None) -> dict:
             out["action_required"] = ("The active instance is not running and several ComfyUI backends are: "
                                       f"{', '.join(running)}. Ask the user which one to use, then call "
                                       "comfy_instances action=switch name=<it>.")
-    if not running:
+    if not running and st.get("setup") != "managed":
         out["action_required"] = ("Tell the user exactly this and nothing more, then wait for their reply: "
                                   f"\"{NO_BACKEND_MESSAGE}\" Do not open the preview pane, do not try to start ComfyUI "
                                   "yourself and do not suggest how to start it. When the user says it is up, call "
@@ -229,6 +242,177 @@ def _inst(name: str | None) -> dict:
     if name not in st["instances"]:
         raise ValueError(f"unknown instance {name!r}")
     return st["instances"][name] | {"name": name}
+
+
+# ---------------------------------------------------------------- own install (first run / start / stop)
+MANAGED_NAME = "comfy-recipe"
+
+
+def _managed_instance(st: dict) -> dict | None:
+    d = (st.get("managed") or {}).get("dir")
+    m = installer.manifest(d) if d else None
+    if not m:
+        return None
+    return {"name": MANAGED_NAME, "url": f"http://127.0.0.1:{m['port']}", "root": m["comfyui_dir"],
+            "launcher": "Comfy Recipe (own install)", "gpu": f"cuda:{m['gpu']}" if m.get("gpu") is not None else "default",
+            "install_dir": d}
+
+
+def _managed_dir(st: dict | None = None) -> Path | None:
+    d = ((st or _load_state()).get("managed") or {}).get("dir")
+    return Path(d) if d else None
+
+
+def setup_state() -> dict:
+    """What the session kickoff needs to know: first_run | installing | install_failed | stopped | running | existing."""
+    st = _load_state()
+    d = _managed_dir(st)
+    if d:
+        ist = installer.install_status(d)
+        if ist.get("state") == "running":
+            return {"phase": "installing", "dir": str(d), "install": ist}
+        if ist.get("state") == "error" and not installer.manifest(d):
+            return {"phase": "install_failed", "dir": str(d), "install": ist}
+        if installer.manifest(d):
+            if st.get("setup") != "managed":
+                _finish_setup(st)
+            return {"phase": "running" if installer.server_running(d) else "stopped", "dir": str(d)}
+    if st.get("setup") == "existing":
+        return {"phase": "existing"}
+    return {"phase": "first_run"}
+
+
+def _finish_setup(st: dict) -> None:
+    st["setup"] = "managed"
+    own = _managed_instance(st)
+    st["instances"] = {own["name"]: own}
+    st["active"] = own["name"]
+    _save_state(st)
+
+
+def _nested(paths: list[str]) -> list[str]:
+    """Drop folders that sit inside another listed folder (display only)."""
+    out: list[Path] = []
+    for p in sorted((Path(x) for x in paths), key=lambda q: len(str(q))):
+        if not any(p.is_relative_to(o) for o in out):
+            out.append(p)
+    return [str(o) for o in out]
+
+
+def setup_check() -> dict:
+    """Facts for the first-run questions: hardware/GPUs, default folder + free disk, existing installs with models."""
+    st = _load_state()
+    hw = installer.detect_gpus()
+    d = _managed_dir(st) or installer.default_dir()
+    existing = []
+    if st.get("setup") != "managed":
+        found = discover()
+        by_url = cc.alive_many(i["url"] for i in found["instances"].values())
+        for n, i in found["instances"].items():
+            if n == MANAGED_NAME or not i.get("root") or not (Path(i["root"]) / "comfy" / "model_management.py").exists():
+                continue
+            existing.append({"name": n, "launcher": i.get("launcher"), "url": i["url"], "running": bool(by_url.get(i["url"])),
+                             "root": i["root"], "model_folders": _nested(installer.model_dirs_of(i["root"]))})
+        seen = {str(Path(e["root"]).resolve()).lower() for e in existing}
+        own = str(Path(_managed_dir(st) or installer.default_dir()).resolve()).lower()
+        for root in installer.running_comfy_roots():
+            if root.lower() in seen or root.lower().startswith(own):
+                continue
+            sm = _sm_data_dir_of(root)
+            existing.append({"name": root, "launcher": "StabilityMatrix" if sm else "ComfyUI", "url": None, "running": True,
+                             "root": root, "model_folders": _nested(installer.model_dirs_of(root))})
+    try:
+        port = installer.free_port()
+    except RuntimeError as e:
+        port = str(e)
+    dd = installer.check_dir(d)
+    alt = None
+    if dd.get("synced_by") or not dd["ok"]:  # Documents synced to the cloud / unusable: propose a local alternative
+        cand = installer.check_dir(Path.home() / "ComfyRecipe")
+        alt = cand["path"] if cand["ok"] and not cand.get("synced_by") else None
+    return {"setup": st.get("setup"), "phase": setup_state()["phase"], "hardware": hw["kind"], "gpus": hw["gpus"],
+            "ask_gpu": len(hw["gpus"]) > 1, "pytorch_build": hw["note"], "default_dir": str(d), "default_dir_check": dd,
+            "alternative_dir": alt, "disk_free_gb": installer.disk_free_gb(d), "disk_needed_gb": installer.DISK_NEEDED_GB,
+            "download_gb": installer.DOWNLOAD_GB, "port": port, "existing_installs": existing,
+            "steps": installer.STEPS}
+
+
+def setup_install(dir: str | None = None, gpu=None, share_models_from: list[str] | None = None,
+                  allow_synced: bool = False) -> dict:
+    st = _load_state()
+    chk = installer.check_dir(dir or installer.default_dir())
+    if not chk["ok"]:
+        raise ValueError(f"cannot install in {chk['path']}: {chk['problem']}. Ask the user for another folder.")
+    if chk.get("synced_by") and not allow_synced:
+        raise ValueError(f"{chk['path']} is inside {chk['synced_by']}: about 15 GB would be uploaded to the cloud and syncing "
+                         "can break the install. Ask the user to pick a local folder (e.g. " + str(Path.home() / "ComfyRecipe")
+                         + "), or pass allow_synced=true only if they insist.")
+    d = Path(chk["path"])
+    hw = installer.detect_gpus()
+    if gpu in ("", "auto"):
+        gpu = None
+    if gpu is not None:
+        gpu = int(gpu)
+        if hw["kind"] != "nvidia" or gpu not in [g["index"] for g in hw["gpus"]]:
+            raise ValueError(f"no GPU with index {gpu}; GPUs: {hw['gpus']}")
+    elif hw["kind"] == "nvidia" and len(hw["gpus"]) > 1:
+        raise ValueError("this machine has several GPUs: ask the user which one to use, then pass gpu=<index>")
+    roots = []
+    known = {n: i for n, i in discover()["instances"].items()} if share_models_from else {}
+    for s in share_models_from or []:
+        root = known.get(s, {}).get("root") or s
+        if not Path(root).is_dir():
+            raise ValueError(f"cannot share models from {s!r}: not an install name or ComfyUI folder")
+        roots.append(str(root))
+    port = (installer.manifest(d) or {}).get("port") or installer.free_port()
+    res = installer.spawn_install(d, port, gpu, roots)
+    st = _load_state()
+    st["managed"] = {"dir": str(d)}
+    _save_state(st)
+    return {"started": True, "dir": str(d), "port": port, "gpu": gpu, "shared_models_from": roots,
+            "status": res, "next": "call comfy_setup action=status wait_s=300 repeatedly; tell the user one short line "
+                                    "each time a step finishes"}
+
+
+def setup_status(wait_s: int = 0) -> dict:
+    d = _managed_dir()
+    if not d:
+        return {"state": "none", "hint": "nothing installed yet - see comfy_setup action=check"}
+    st = installer.wait_status(d, wait_s)
+    if st.get("state") == "done" and installer.manifest(d):
+        _finish_setup(_load_state())
+        st["next"] = "call comfy_setup action=start, then open its url in the preview pane"
+    return {k: v for k, v in st.items() if k not in ("steps",)}
+
+
+def setup_start(wait_s: int = 180) -> dict:
+    d = _managed_dir()
+    if not d or not installer.manifest(d):
+        raise ValueError("Comfy Recipe's ComfyUI is not installed yet (comfy_setup action=check / install)")
+    return installer.start(d, wait_s) | {"instance": MANAGED_NAME}
+
+
+def setup_stop() -> dict:
+    d = _managed_dir()
+    if not d:
+        return {"stopped": False, "note": "nothing installed"}
+    return installer.stop(d)
+
+
+def setup_use_existing() -> dict:
+    st = _load_state()
+    st["setup"] = "existing"
+    _save_state(st)
+    return instances("list")
+
+
+def setup_reset() -> dict:
+    """Forget the setup choice (first-run questions come back). Never deletes files."""
+    st = _load_state()
+    old = {"setup": st.get("setup"), "managed": st.get("managed")}
+    st.update(setup=None, managed=None, active=None, instances={})
+    _save_state(st)
+    return {"reset": True, "previous": old, "note": "no files were deleted"}
 
 
 # ---------------------------------------------------------------- converter (comfy-cli, GPL-3.0, run out of process)

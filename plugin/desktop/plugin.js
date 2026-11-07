@@ -53,9 +53,11 @@ async function startComfySession(ctx) {
   }
   const motto = await mottoP
   const kickoff = motto ? `${MARKER} "${motto.replace(/"/g, "'")}"` : MARKER
-  // The new chat's composer mounts asynchronously; submit is fail-closed (false until a visible composer exists).
-  for (let i = 0; i < 60; i++) {
-    if (host.composer.submit(null, kickoff)) return
+  // Address the FRESH draft ('new'), never the active composer: right after session.new the previous chat's composer
+  // can still be the active one, and a null address would post the kickoff into that old chat. 'new' fails closed
+  // (false) until the new chat's composer is mounted, so retry for a while.
+  for (let i = 0; i < 100; i++) {
+    if (host.composer.submit('new', kickoff)) return
     await sleep(100)
   }
   host.notify({ kind: 'warning', message: 'Comfy Recipe: chat opened, but the kickoff could not be sent — type “[ComfyUI session]”.' })

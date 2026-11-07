@@ -18,13 +18,23 @@ Run every step with the exact tool calls below; read each result before the next
   Sidebar tree items have no refs — the `[title='…']` selector is the reliable way. Check the returned title.
 
 ## 2. Find what you need on the canvas
-- `drive_preview {"action":"elements","max":150}` once, when you actually need refs.
-- A node/textarea missing from the list is usually outside the view: click `Fit View` (ref like `btn-fit-view`), re-list.
+- `drive_preview {"action":"elements","max":150}` once, when you actually need refs. Use every ref it already gives you
+  (prompt textarea, Run) BEFORE moving the view.
+- Do NOT use `Fit View` to find a node: on a big graph it zooms out below ~20 % and ComfyUI stops drawing node widgets —
+  the prompt textareas and file buttons vanish (the delta lists them under `removed`). That is the zoom, not a broken
+  window; never switch to editing the JSON because of it.
+- Reach any node at a readable zoom:
+  1. With nothing selected, the right panel has a `Nodes` tab: `click` it → each node is listed by title with a
+     `Locate node on canvas` button right after it (refs follow the list order).
+  2. `click` that node's `Locate node on canvas` → the canvas zooms to ~150 % with the node in the centre.
+  3. `click` with selector `#graph-canvas` (centre = that node) → it is selected; its widgets appear in the delta /
+     right panel (`INPUTS`; a Load Image node shows its file button, labelled with the current file name).
 - Hidden widgets of a node: `click` the node div → `Node Info` → `Parameters` tab; the delta lists them, plus the node
   label with its `#<node id>` badge (text, not a DOM id — never build selectors from it).
 
-## 3. Set the prompt
-1. Find the prompt **textarea** (role `textarea`) inside the node that holds the main prompt.
+## 3. Set the prompt (do this first — it is visible right after the page opens)
+1. Find the prompt **textarea** (role `textarea`, e.g. `txt-positive-prompt`) inside the node that holds the main
+   prompt. Not in the list → step 2 (Locate the node), never the JSON.
 2. To READ the current text: `elements` truncates textarea values and `desktop_preview read` omits them. If the tab has
    no `*`, read the saved workflow JSON (`<root>/user/default/workflows/…/<name>.json`) and take that node's
    `widgets_values` (match by the `#<id>` badge). Never call a field empty from a truncated value.
@@ -42,9 +52,12 @@ Run every step with the exact tool calls below; read each result before the next
 3. Check in the JSON wiring that this node really feeds the socket you mean (`workflow-json-editing.md`, "Read the wiring").
 4. `click` the file button (label = current file name) → in the picker
    `drive_preview {"action":"type","ref":"<Search … input ref>","text":"<exact file name>","submit":true}` (Enter = top result).
-5. Verify from the delta: the file button label and the node label (file + dimensions) changed. No change →
-   fallback: back up the JSON, set that LoadImage's `widgets_values[0]`, close + reopen the pane, reopen the workflow.
-   The picker only sees newly copied files after a fresh page (close + open, not in-page reload).
+   No file button in the list → step 2 (Locate the node, then select it).
+5. Verify from the delta: the file button label and the node label (file + dimensions) changed.
+   The picker only sees newly copied files after a fresh page (close + open, not in-page reload) — so copy ALL needed
+   images first, reopen the pane once, then set the prompt and the images in the window.
+6. Last resort only (picker tried at a readable zoom and failed twice): tell the user, back up the JSON, set that
+   LoadImage's `widgets_values[0]`, close + reopen the pane. Never edit the JSON for the prompt, a number or a seed.
 
 ## 6. Run and report
 1. `drive_preview {"action":"click","ref":"<Run button ref>"}` — the page title shows `[N%]` while it runs.
@@ -63,5 +76,10 @@ Run every step with the exact tool calls below; read each result before the next
 
 ## Do not
 - Do not call `comfy_run` in a ComfyUI session unless the user says "headless"/"API".
+- Do not change prompts, numbers, seeds or images by editing the workflow JSON: they are always reachable in the window
+  (step 2). JSON edits are for wiring only (`workflow-json-editing.md`).
+- Do not use `browser_*` / `browser_exec` tools: they drive a separate, invisible browser, not the user's window.
+- "No Hermes Desktop window answered" / "only takes actions in the session the user is looking at" = the user is in
+  another chat or tile. Ask them to click into this chat, wait for their reply, retry. Do not work around it.
 - Do not click with broad CSS selectors (`[data-testid] button` hits the first button on the page). Use refs.
 - Do not save tabs or close tabs with unsaved edits unless asked.
