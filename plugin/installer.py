@@ -4,7 +4,7 @@ The install runs as a DETACHED background process (``python installer.py run <di
 Hermes restarts; it reports through ``<dir>/.comfy-recipe/status.json`` + ``install.log``. The plugin only ever starts
 or stops the ComfyUI inside this folder (pid recorded in ``server.json`` and checked against its command line).
 
-Layout of an install folder (default ~/ComfyRecipe):
+Layout of an install folder (default <Documents>/ComfyRecipeEnv):
     ComfyUI/                 ComfyUI source (git clone of the latest release tag, or the release zip without git)
     venv/                    Python 3.13 made by uv, PyTorch for this machine's GPU, ComfyUI + ComfyUI-Manager deps
     comfyui.log              server log
@@ -64,7 +64,7 @@ def documents_dir() -> Path:
 
 
 def default_dir() -> Path:
-    return documents_dir() / "ComfyRecipe"
+    return documents_dir() / "ComfyRecipeEnv"
 
 
 SYNC_MARKERS = {"onedrive": "OneDrive", "mobile documents": "iCloud Drive", "icloud": "iCloud Drive",
@@ -577,6 +577,31 @@ def server_running(d) -> bool:
     return bool(m) and _port_open(m["port"]) and _http_ok(_url(m))
 
 
+MANAGER_RESTART = "[ComfyUI-Manager] Restarting"  # Manager re-execs main.py after installing node-pack dependencies
+
+
+def listener_pid(port: int, marker: str) -> int | None:
+    """PID of Comfy Recipe's ComfyUI serving `port`: the outermost process whose command line lives in the install
+    folder (`marker`). On Windows the venv python.exe is a launcher whose child (the base interpreter) owns the socket,
+    and the listening socket is not always reported as LISTEN - so take any local socket on the port and walk up."""
+    try:
+        import psutil
+        owners = {c.pid for c in psutil.net_connections(kind="tcp") if c.laddr and c.laddr.port == int(port) and c.pid}
+        for pid in owners:
+            proc, found = psutil.Process(pid), None
+            while proc is not None:
+                if marker.lower() in " ".join(proc.cmdline()).replace("\\", "/").lower():
+                    found = proc.pid
+                elif found:
+                    break
+                proc = proc.parent()
+            if found:
+                return found
+    except Exception:
+        return None
+    return None
+
+
 def start(d, wait_s: int = 180) -> dict:
     d = Path(d).expanduser()
     m = manifest(d)
@@ -595,24 +620,41 @@ def start(d, wait_s: int = 180) -> dict:
         os.replace(log, d / "comfyui.prev.log")
     p = _detached(args, log, cwd=m["comfyui_dir"])
     _write(_meta(d) / "server.json", {"pid": p.pid, "started_at": time.time(), "args": args})
-    t0 = time.time()
+    t0, size0, relaunched = time.time(), log.stat().st_size if log.exists() else 0, False
+    marker = d.resolve().as_posix()
     while time.time() - t0 < wait_s:
         if _http_ok(url):
-            return {"started": True, "running": True, "url": url, "seconds": round(time.time() - t0, 1)}
-        if p.poll() is not None:
-            tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-15:]
-            raise RuntimeError("ComfyUI exited while starting:\n" + "\n".join(tail))
+            res = {"started": True, "running": True, "url": url, "seconds": round(time.time() - t0, 1)}
+            if relaunched:  # record the re-executed process, or a later stop() would miss it
+                pid = listener_pid(m["port"], marker)
+                if pid:
+                    _write(_meta(d) / "server.json", {"pid": pid, "started_at": time.time(), "args": args})
+                res["note"] = "ComfyUI-Manager restarted ComfyUI once to apply node-pack dependencies"
+            return res
+        if not relaunched and p.poll() is not None:
+            with open(log, "rb") as f:
+                f.seek(size0)
+                new_log = f.read().decode("utf-8", errors="replace")
+            if MANAGER_RESTART not in new_log:
+                raise RuntimeError("ComfyUI exited while starting:\n" + "\n".join(new_log.splitlines()[-15:]))
+            relaunched = True  # the replacement process keeps writing to the same log and opens the same port
         time.sleep(1.5)
     return {"started": True, "running": False, "url": url, "note": f"still starting after {wait_s}s - call start again"}
 
 
-def stop(d) -> dict:
+def stop(d, port: int | None = None) -> dict:
+    """Stop Comfy Recipe's ComfyUI of folder `d`. `port` = fallback when the folder (and its manifest) is gone but the
+    old process still runs; only a process whose command line lives in `d` is ever stopped."""
     d = Path(d).expanduser()
     srv = _read(_meta(d) / "server.json", {}) or {}
     pid = srv.get("pid")
     marker = Path(d).resolve().as_posix()  # the venv python in the command line lives inside the install folder
-    if not _pid_alive(pid):
-        return {"stopped": False, "note": "not running (no live process started by Comfy Recipe)"}
+    if not _pid_alive(pid, marker):
+        m = manifest(d)  # e.g. ComfyUI-Manager re-executed ComfyUI under a new PID, or the folder was deleted
+        port = (m or {}).get("port") or port
+        pid = listener_pid(port, marker) if port else None
+        if not pid:
+            return {"stopped": False, "note": "not running (no live process started by Comfy Recipe)"}
     try:
         import psutil
         proc = psutil.Process(int(pid))
@@ -630,12 +672,129 @@ def stop(d) -> dict:
     return {"stopped": True, "pid": pid}
 
 
+# ---------------------------------------------------------------- stop together with Hermes
+# ComfyUI is launched detached (breakaway from Hermes' job object) and the plugin itself usually lives in the background
+# gateway process, which keeps running after the desktop window closes. So a small watchdog process watches the Hermes
+# process(es) the user actually closes and stops ComfyUI when all of them are gone.
+WATCH_POLL_S = 3.0
+WATCH_IDLE_EXIT_S = 90  # ComfyUI not running this long (stopped elsewhere; Manager restarts take ~30 s) -> watchdog exits
+
+
+def hermes_owner_pids() -> list[int]:
+    """The Hermes processes whose exit should stop ComfyUI: the desktop app's main process(es) when it runs,
+    otherwise this process (CLI / gateway-only use)."""
+    try:
+        import psutil
+        owners = [p.info["pid"] for p in psutil.process_iter(["pid", "name", "cmdline"])
+                  if (p.info["name"] or "").lower() in ("hermes.exe", "hermes")
+                  and not any(str(a).startswith("--type=") for a in (p.info["cmdline"] or []))]  # Electron helpers
+        return owners or [os.getpid()]
+    except Exception:
+        return [os.getpid()]
+
+
+def ensure_watchdog(d, owners: list[int]) -> dict:
+    """Record the owners and make sure exactly one watchdog runs for install `d`."""
+    d = Path(d).expanduser()
+    meta = _meta(d)
+    _write(meta / "owners.json", {"pids": sorted(set(int(p) for p in owners)), "updated_at": time.time()})
+    w = _read(meta / "watchdog.json", {}) or {}
+    if _pid_alive(w.get("pid"), "installer.py watch " + d.resolve().as_posix()):
+        return {"watchdog": w["pid"], "owners": sorted(set(owners)), "new": False}
+    p = _detached([_host_python(), str(Path(__file__).resolve()), "watch", str(d)], meta / "watchdog.out", cwd=str(d))
+    _write(meta / "watchdog.json", {"pid": p.pid, "started_at": time.time()})
+    return {"watchdog": p.pid, "owners": sorted(set(owners)), "new": True}
+
+
+def release_watchdog(d) -> None:
+    """stop_with_hermes switched off: the watchdog exits at its next poll, ComfyUI keeps running."""
+    meta = _meta(Path(d).expanduser())
+    if (meta / "watchdog.json").exists():
+        _write(meta / "owners.json", {"pids": [], "keep_running": True, "updated_at": time.time()})
+
+
+def _comfy_running(d: Path, m: dict) -> bool:
+    marker = d.resolve().as_posix()
+    srv = _read(_meta(d) / "server.json", {}) or {}
+    return _pid_alive(srv.get("pid"), marker) or bool(listener_pid(m["port"], marker))
+
+
+def watch(d, poll: float = WATCH_POLL_S, idle_exit_s: float = WATCH_IDLE_EXIT_S, max_loops: int | None = None) -> str:
+    d = Path(d).expanduser()
+    idle_since, loops = None, 0
+    while max_loops is None or loops < max_loops:
+        loops += 1
+        time.sleep(poll)
+        m = manifest(d)
+        if not m:
+            return "install gone"
+        owners = _read(_meta(d) / "owners.json", {}) or {}
+        if owners.get("keep_running"):
+            return "keep running (stop_with_hermes off)"
+        if not _comfy_running(d, m):
+            idle_since = idle_since or time.time()
+            if time.time() - idle_since > idle_exit_s:
+                return "ComfyUI not running"
+            continue
+        idle_since = None
+        pids = owners.get("pids") or []
+        if pids and not any(_pid_alive(p) for p in pids):
+            fresh = (_read(_meta(d) / "owners.json", {}) or {}).get("pids") or []  # a new session may have just registered
+            if not any(_pid_alive(p) for p in fresh):
+                stop(d)
+                return "Hermes closed: ComfyUI stopped"
+    return "max loops"
+
+
+def adopt(d, timeout: int = 240) -> dict:
+    """Take back an existing Comfy Recipe install (after a reset, or after the user MOVED the folder).
+    Rewrites the manifest's absolute paths when the folder moved, then proves the venv runs ComfyUI's Python deps."""
+    d = Path(os.path.expandvars(str(d))).expanduser()
+    if not d.is_absolute():
+        raise ValueError("give the full folder path of the Comfy Recipe install")
+    m = manifest(d)
+    if not m:
+        raise ValueError(f"{d} is not a Comfy Recipe install (no .comfy-recipe/manifest.json). If the folder was deleted, "
+                         "make a new install instead.")
+    d = d.resolve()
+    old = Path(m.get("dir") or d)
+    moved = str(old).lower() != str(d).lower()
+    if moved:
+        def rebase(v):
+            try:
+                return str(d / Path(v).relative_to(old))
+            except ValueError:
+                return v  # outside the old folder (e.g. shared model roots): unchanged
+        _write(_meta(d) / "manifest.moved-from.json", m)
+        m = dict(m, dir=str(d), comfyui_dir=rebase(m["comfyui_dir"]), python=rebase(m["python"]), moved_from=str(old))
+        _write(_meta(d) / "manifest.json", m)
+        _write(_meta(d) / "server.json", {})  # the old PID belongs to the old location
+    problems = []
+    if not Path(m["python"]).exists():
+        problems.append(f"Python not found at {m['python']}")
+    if not (Path(m["comfyui_dir"]) / "main.py").exists():
+        problems.append(f"ComfyUI not found in {m['comfyui_dir']}")
+    torch_v = None
+    if not problems:
+        r = _run([m["python"], "-c", "import torch, sys; print(torch.__version__, torch.cuda.is_available())"],
+                 timeout=timeout, cwd=m["comfyui_dir"])
+        if r.returncode != 0:
+            problems.append("its Python environment does not start: " + (r.stderr or r.stdout).strip()[-400:])
+        else:
+            torch_v = r.stdout.strip()
+    if problems:
+        raise RuntimeError("cannot use this install: " + "; ".join(problems)
+                           + ". A venv moved to another drive or broken by the move needs a new install.")
+    return {"adopted": True, "dir": str(d), "moved_from": str(old) if moved else None, "port": m["port"],
+            "gpu": m.get("gpu"), "torch": torch_v}
+
+
 if __name__ == "__main__":
     # python installer.py run <install dir> --port N [--gpu N] [--share ROOT ...]   (host Python, stdlib only)
     # python installer.py share <ComfyUI dir> --share ROOT [...]                    (ComfyUI venv Python, needs PyYAML)
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["run", "share"])
+    ap.add_argument("cmd", choices=["run", "share", "watch"])
     ap.add_argument("dir")
     ap.add_argument("--port", type=int)
     ap.add_argument("--gpu", type=int)
@@ -643,5 +802,9 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if a.cmd == "share":
         print(write_shared_models(Path(a.dir), a.share or []))
+    elif a.cmd == "watch":
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), "watching", a.dir, "pid", os.getpid(), flush=True)
+        outcome = watch(Path(a.dir))
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), outcome, flush=True)
     else:
         install(Path(a.dir), a.port, a.gpu, a.share)

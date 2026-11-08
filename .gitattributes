@@ -1,0 +1,2 @@
+# Bundled workflows are checksummed byte-for-byte in catalog.json: never convert their line endings.
+plugin/workflows/*.json -text

@@ -1,10 +1,13 @@
 ---
 name: session
-description: "Use when driving ComfyUI live in the Hermes preview pane (Comfy Recipe)."
-version: 0.3.0
+description: "Use when driving ComfyUI in the Hermes preview pane."
+version: 0.4.0
+platforms: [windows, linux, macos]
 author: dotroza
 license: MIT
 metadata:
+  comfy_recipe:
+    workflow_ids: []
   hermes:
     tags: [comfyui, preview-pane, live-session, workflows, image-generation, video-generation]
     related_skills: [comfyui]
@@ -35,9 +38,10 @@ Comfy Recipe installs and runs its OWN ComfyUI, separate from any other ComfyUI 
 can run at the same time, e.g. on another port/GPU). The kickoff tells you the phase; `comfy_setup` does the work:
 | phase | what to do |
 |---|---|
-| first_run | Explain in 3-4 plain lines (beginner-friendly), then ONE clarify form: new install (recommended) vs existing; GPU (only if `ask_gpu`); share models of `existing_installs` (only if any); install folder (default `<Documents>/ComfyRecipe`, or `alternative_dir` first when Documents is cloud-synced; a typed path → `check_dir` first). |
+| first_run | Explain in 3-4 plain lines (beginner-friendly), then ONE clarify form: new install (recommended) vs existing; GPU (only if `ask_gpu`); share models of `existing_installs` (only if any); install folder (default `<Documents>/ComfyRecipeEnv`, or `alternative_dir` first when Documents is cloud-synced; a typed path → `check_dir` first). |
 | installing | `comfy_setup action=status wait_s=300` in a loop; one short line per finished step (x/7); on `error` show the error + `log_tail` and offer a retry. |
 | stopped | `comfy_setup action=start` (waits until it answers), then open the pane. |
+| install_missing | The install was deleted or moved. One line saying so, then the first-run form with an extra choice "I moved it" → ask the folder → `comfy_setup action=adopt dir=<it>` → `start`. If the kickoff says the old ComfyUI still runs, `comfy_setup stop` first. |
 | running | Normal session start (below). |
 - `comfy_setup action=install` returns at once; the install runs in the background (about 6 GB, 5-20 min; uv, Python,
   ComfyUI latest release, PyTorch for the GPU, ComfyUI-Manager). It survives the chat ending: a later session resumes
@@ -46,8 +50,14 @@ can run at the same time, e.g. on another port/GPU). The kickoff tells you the p
   copied and new downloads (Manager, template models) go to its own `ComfyUI/models/`. Delete that yaml to stop sharing.
 - Moving workflows: drag a workflow `.json` (or a PNG/WebP made by ComfyUI) into the window - the graph opens exactly
   as saved; Ctrl+S puts it in the Workflows list. Tell new users this once, after the first start.
-- `start`/`stop` only ever touch this plugin's install (pid checked). `reset` forgets the choice, deletes nothing; to
-  remove the install, the user deletes its folder.
+- `start`/`stop` only ever touch this plugin's install (pid or the process serving its port, checked against the
+  install folder). `reset` forgets the choice, deletes nothing; `adopt dir=<folder>` uses that install again (also
+  after the user moved it: paths are rewritten, the venv is tested; a move to another drive may break the venv → new
+  install). To remove the install, the user stops it (`comfy_setup stop`, Windows locks a running install) and deletes
+  its folder; the next session reports `install_missing`.
+- Closing Hermes stops this ComfyUI (setting `stop_with_hermes`, default on): a small watchdog started with it watches
+  the Hermes desktop app (or the Hermes process when there is no desktop app) and runs `stop` when it is gone. The next
+  session starts it again (phase `stopped`). Other ComfyUI installs are never touched.
 
 ## Procedure: open a ComfyUI session
 In the desktop app the plugin does steps 1–2 itself at the kickoff (it checks ComfyUI, opens the pane and hands you the
@@ -75,6 +85,17 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
   vanished after a view change is hidden by the zoom: `Nodes` tab → `Locate node on canvas` (pane-recipe step 2).
 - Wiring changes (drag a link, add a node) cannot be done in the pane: edit the workflow JSON on disk
   (`references/workflow-json-editing.md`, back up first), then close + reopen the pane.
+
+## Procedure: use the shared workflow library
+- Native skills stay in the plugin; a skill may use zero, one, or several shared workflow IDs. There is no separate
+  recipe engine. Do not copy workflows into skill folders.
+- `comfy_workflows action=library` lists bundled IDs offline. Managed startup adds all six definitions to the
+  `Comfy Recipe/` folder; dependencies are not installed by copying JSON.
+- Before using one, follow `references/workflow-library.md`: `comfy_workflows action=check`, then propose its
+  `setup_proposal` — ALL missing node packs, models and settings (e.g. Nodes 2.0) — in ONE clarify form; on OK do it
+  in the window (Issues → `Install All`, downloads, Settings switch), restart if packs were added, re-check. Preserve
+  working copies and open/run visibly. A modified working copy is not certified by a preflight report about the
+  bundled revision.
 
 ## Procedure: propose a template as a starting point
 When the user describes something new ("I want to turn a photo into a 3D model", "a video with sound"), or none of
@@ -114,6 +135,7 @@ enhancers running to their token cap, reference-image count, LoRA re-patching, m
 - Verify results with real tool output (vision check, ffprobe) — never just "done".
 
 ## References
+- `references/workflow-library.md` — shared workflow copies, readiness and consented Manager installation.
 - `references/pane-recipe.md` — literal tool-call recipe for the visible session (any model can follow it).
 - `references/pane-pitfalls.md` — verified drive_preview behaviour on the ComfyUI frontend.
 - `references/workflow-json-editing.md` — layout-preserving UI-JSON edits (links, subgraph inputs, inserting nodes).

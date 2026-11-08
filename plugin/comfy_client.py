@@ -21,7 +21,10 @@ def _req(base: str, path: str, data: bytes | None = None, headers: dict | None =
         with request.urlopen(req, timeout=timeout) as r:
             return r.read()
     except error.HTTPError as e:
-        body = e.read().decode("utf-8", "replace")
+        try:
+            body = e.read().decode("utf-8", "replace")
+        finally:
+            e.close()
         raise ComfyError(f"HTTP {e.code} on {path}: {body[:2000]}") from None
     except error.URLError as e:
         raise ComfyError(f"Cannot reach ComfyUI at {base}: {e.reason}") from None
@@ -68,7 +71,13 @@ def alive_many(bases) -> dict:
 
 def list_workflows(base: str) -> list[str]:
     q = "/api/userdata?dir=workflows&recurse=true&split=false&full_info=false"
-    return sorted(get_json(base, q))
+    try:
+        return sorted(get_json(base, q))
+    except ComfyError as exc:
+        # A fresh ComfyUI has no user/default/workflows folder until the first save: that is "no workflows".
+        if str(exc).startswith("HTTP 404 ") and "Directory not found" in str(exc):
+            return []
+        raise
 
 
 def load_workflow(base: str, rel_path: str) -> dict:

@@ -12,8 +12,8 @@ where the time goes.
 
 | | |
 |---|---|
-| **First run** | The first session asks one question: install a ComfyUI just for Comfy Recipe (recommended — nothing to set up, works next to any ComfyUI you already have) or use an existing one. With several GPUs it asks which one; if another ComfyUI is found it offers to reuse its models (nothing copied). It asks where to install (default `Documents\ComfyRecipe`; refuses non-empty, cloud-synced or too-small locations). The install runs in the background (~6 GB, 5–20 min) with live progress in the chat: [uv](https://github.com/astral-sh/uv), Python 3.13, the latest ComfyUI release, the right PyTorch for your GPU (NVIDIA CUDA, Apple Metal, AMD ROCm on Linux, else CPU) and ComfyUI-Manager. |
-| `comfy_setup` | check / install / status / start / stop / use_existing / reset for Comfy Recipe's own ComfyUI. It only ever starts or stops that install. |
+| **First run** | The first session asks one question: install a ComfyUI just for Comfy Recipe (recommended — nothing to set up, works next to any ComfyUI you already have) or use an existing one. With several GPUs it asks which one; if another ComfyUI is found it offers to reuse its models (nothing copied). It asks where to install (default `Documents\ComfyRecipeEnv`; refuses non-empty, cloud-synced or too-small locations). The install runs in the background (~6 GB, 5–20 min) with live progress in the chat: [uv](https://github.com/astral-sh/uv), Python 3.13, the latest ComfyUI release, the right PyTorch for your GPU (NVIDIA CUDA, Apple Metal, AMD ROCm on Linux, else CPU) and ComfyUI-Manager. |
+| `comfy_setup` | check / install / status / start / stop / use_existing / reset / adopt for Comfy Recipe's own ComfyUI (adopt = use an existing or moved install folder again). It only ever starts or stops that install. |
 | **Comfy Recipe** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin itself finds the running ComfyUI and opens it in the pane at the start of the turn (no model round trips), then the agent reports instance, GPU and active workflow. The session is named after your first real request. |
 | `comfy_instances` | With its own install: only that one (isolated from your other ComfyUIs). With *use existing*: finds StabilityMatrix (incl. portable), ComfyUI Desktop, servers on ports 8188–8190 / 8000 and any `extra_urls`; switches automatically if the remembered one is down; if none is running it asks you to start yours. |
 | `comfy_workflows` | Lists saved workflows, describes one (subgraph controls, Load Image nodes, prompt target), shows measured timings. |
@@ -22,6 +22,16 @@ where the time goes.
 | `comfy_result` | Waits for a job and returns per-stage timing (sampling, prompt enhancer, loading/patching overhead, cache hits, hints), output files, and for videos a contact sheet + audio level. `prompt_id: "latest"` also reads jobs started with Run in the window. |
 | `/comfy status \| switch \| workflows \| templates <query> \| setup \| run` | Quick control from any chat. |
 | Skill `comfy-recipe:session` | The recipe and verified pitfalls for driving ComfyUI in the pane, layout-preserving workflow JSON edits, and a method for finding slow stages. |
+
+## Shared workflows and native skills
+
+Six RCP workflow definitions ship with the plugin and are added to the managed instance's **Workflows → Comfy Recipe**
+folder after startup. User copies are never overwritten; dependencies are checked and installed on demand, with consent.
+Native Hermes skills stay in `plugin/skills/` and may reference zero, one or multiple shared workflow IDs. There is no
+separate recipe engine or registry. See [the workflow-library guide](docs/WORKFLOW_LIBRARY.md) for authoring and updates.
+
+Use `comfy_workflows action=library` (offline), `action=install` (copy only), or `action=check workflow=<stable ID>`
+(read-only requirements). Commands: `/comfy library`, `/comfy library install`, `/comfy check <stable ID>`.
 
 ## Visible vs headless
 
@@ -53,6 +63,7 @@ Requirements
 | `extra_urls` | `[]` | ComfyUI servers on other ports, e.g. `["http://127.0.0.1:8283"]`. |
 | `stabilitymatrix_dirs` | `[]` | Portable StabilityMatrix data folders (learned automatically once seen running). |
 | `converter_python` | auto | A Python with comfy-cli, if auto-detection misses it. |
+| `stop_with_hermes` | `true` | Stop Comfy Recipe's own ComfyUI when Hermes is closed (frees GPU memory). Off = keep it running in the background. |
 
 `/comfy setup` shows what is detected. Runtime data (instance list, object_info cache, run and timing logs, contact
 sheets) lives in `<hermes home>/plugin-data/comfy-recipe/`, never in the plugin folder.
@@ -65,6 +76,10 @@ plugin/
   __init__.py           tools, /comfy, session hook (instructions + session title), bundled skill
   core.py               discovery, workflow describe/run, results, timing (Hermes-independent)
   templates.py          template search, readiness check, save as user workflow
+  library.py            shared catalog + protected working-copy publication
+  dependencies.py       read-only workflow requirements and Manager installation guidance
+  skill_registration.py native skill discovery + optional workflow ID references
+  workflows/            six versioned UI-format JSON assets + catalog.json
   comfy_client.py       stdlib HTTP client for the ComfyUI API
   convert_bridge.py     UI→API conversion via comfy-cli + two fixes it needs (subgraph socket values, viewer nodes)
   desktop/plugin.js     desktop half: sidebar entry + "New ComfyUI session"

@@ -46,6 +46,16 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
   as `\r`-separated chunks; concatenate then split).
 - Jobs queued via API are never shown in a browser tab (events go only to the queuing `client_id`).
 
+## Shared workflow library (0.4.0)
+- `library.py` validates package paths/hashes and publishes only missing working copies under `Comfy Recipe/`, with
+  overwrite disabled and exact target read-back. Different user JSON is protected; updates are explicit siblings.
+- `core.setup_start` and the running-session fast path provision only the managed instance. Foreign instances require
+  explicit `comfy_workflows action=install`. Runtime records live in `core.DATA/library/`, not the plugin package.
+- Native `skills/*/SKILL.md` files register through `ctx.register_skill`. Optional
+  `metadata.comfy_recipe.workflow_ids` references the shared catalog; no separate skill/recipe index exists.
+- `dependencies.py` checks evidence without installing anything. Refresh schema after consented Manager installation.
+- Standard-library tests: `python -m unittest discover -s tests -v`; authoring details in `docs/WORKFLOW_LIBRARY.md`.
+
 ## Repo hygiene
 - Two plugins registering the same tool names cannot both be enabled — disable the old one before enabling a rename.
 - Scan new public repos for personal refs (`grep -rniE "<username>|<project>|<port>"`) before publishing.

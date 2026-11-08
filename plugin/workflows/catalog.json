@@ -1,0 +1,669 @@
+{
+  "schema_version": 1,
+  "library_version": "1.0.1",
+  "workflows": [
+    {
+      "id": "ace-step1-5-xl-base",
+      "title": "RCP_audio_ace_step1_5_xl_base",
+      "file": "RCP_audio_ace_step1_5_xl_base.json",
+      "version": "1.0.0",
+      "sha256": "bd634f185dec0775767940d063b36cc3a188f752b85126751e3671c2c26c2936",
+      "media": "audio",
+      "description": "ACE Step 1.5 XL Base audio generation.",
+      "requirements": {
+        "core_node_types": [
+          "ConditioningZeroOut",
+          "DualCLIPLoader",
+          "EmptyAceStep1.5LatentAudio",
+          "KSampler",
+          "LoadAudio",
+          "ModelSamplingAuraFlow",
+          "PrimitiveInt",
+          "SaveAudioMP3",
+          "TextEncodeAceStepAudio1.5",
+          "UNETLoader",
+          "VAEDecodeAudio",
+          "VAEEncodeAudio",
+          "VAELoader"
+        ],
+        "custom_node_packs": [],
+        "unresolved_node_types": [],
+        "frontend_nodes": [],
+        "frontend_settings": [],
+        "models": [
+          {
+            "folder": "diffusion_models",
+            "name": "acestep_v1.5_xl_base_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/diffusion_models/acestep_v1.5_xl_base_bf16.safetensors",
+            "source_node_type": "UNETLoader"
+          },
+          {
+            "folder": "vae",
+            "name": "ace_1.5_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/vae/ace_1.5_vae.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen_0.6b_ace15.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/text_encoders/qwen_0.6b_ace15.safetensors",
+            "source_node_type": "DualCLIPLoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen_4b_ace15.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/split_files/text_encoders/qwen_4b_ace15.safetensors",
+            "source_node_type": "DualCLIPLoader"
+          }
+        ],
+        "inputs": [
+          {
+            "node": 111,
+            "type": "LoadAudio",
+            "filename": "Aya Nakamura & @larvfleuze - Sexy Nana (Clip officiel) (mp3cut.net).mp3",
+            "connected": true,
+            "user_provided": true
+          }
+        ],
+        "executables": [],
+        "services": [],
+        "compatibility": {
+          "observed_comfyui_version": "0.44.2",
+          "observed_frontend_version": "1.57.6",
+          "observed_python_version": "3.13.15",
+          "execution_tested": false
+        },
+        "portability_warnings": []
+      }
+    },
+    {
+      "id": "qwen-image-2-1-i2i",
+      "title": "RCP_qwen_image_2_1_i2i",
+      "file": "RCP_qwen_image_2_1_i2i.json",
+      "version": "1.0.1",
+      "sha256": "d48d959060b3b7e2f782cf6709d808a90de24f714b7b35060a2cd7f2a0430dc3",
+      "media": "image",
+      "description": "Edit an image using reference images.",
+      "requirements": {
+        "core_node_types": [
+          "BatchImagesNode",
+          "CLIPLoader",
+          "ComfySwitchNode",
+          "EmptyLatentImage",
+          "GetImageSize",
+          "ImageCompare",
+          "KSampler",
+          "LoadImage",
+          "LoraLoaderModelOnly",
+          "PreviewAny",
+          "PreviewImage",
+          "PrimitiveStringMultiline",
+          "QwenImage21Cache",
+          "SaveImageAdvanced",
+          "TextEncodeQwenImage21",
+          "TextGenerate",
+          "UNETLoader",
+          "VAEDecode",
+          "VAELoader"
+        ],
+        "custom_node_packs": [],
+        "unresolved_node_types": [],
+        "frontend_nodes": [],
+        "frontend_settings": [
+          {
+            "id": "Comfy.VueNodes.Enabled",
+            "value": true,
+            "label": "Modern Node Design (Nodes 2.0)",
+            "settings_search": "Nodes 2.0",
+            "reason": "The ImageCompare node (#472) draws its before/after slider only in Nodes 2.0."
+          }
+        ],
+        "models": [
+          {
+            "folder": "diffusion_models",
+            "name": "qwen_image_2.1_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+            "source_node_type": "UNETLoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen3vl_8b_w4a8.safetensors",
+            "url": null,
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "vae",
+            "name": "qwen_image_2.1_vae_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
+            "url": null,
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "loras",
+            "name": "Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors",
+            "url": null,
+            "source_node_type": "LoraLoaderModelOnly"
+          }
+        ],
+        "inputs": [
+          {
+            "node": 470,
+            "type": "LoadImage",
+            "filename": "scene_man_car.jpg",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 475,
+            "type": "LoadImage",
+            "filename": "face_mbappe.jpg",
+            "connected": true,
+            "user_provided": true
+          }
+        ],
+        "executables": [],
+        "services": [],
+        "compatibility": {
+          "observed_comfyui_version": "0.44.2",
+          "observed_frontend_version": "1.57.6",
+          "observed_python_version": "3.13.15",
+          "execution_tested": false
+        },
+        "portability_warnings": []
+      }
+    },
+    {
+      "id": "qwen-image-2-1-t2i",
+      "title": "RCP_qwen_image_2_1_t2i",
+      "file": "RCP_qwen_image_2_1_t2i.json",
+      "version": "1.0.0",
+      "sha256": "318fcb4caf384c147105c108fe921556fe8b385d05e4f19f137b6fb116fc7b87",
+      "media": "image",
+      "description": "Generate an image from text, without photo inputs.",
+      "requirements": {
+        "core_node_types": [
+          "CLIPLoader",
+          "ComfySwitchNode",
+          "EmptyLatentImage",
+          "KSampler",
+          "LoraLoaderModelOnly",
+          "PreviewAny",
+          "PreviewImage",
+          "PrimitiveStringMultiline",
+          "QwenImage21Cache",
+          "SaveImageAdvanced",
+          "TextEncodeQwenImage21",
+          "TextGenerate",
+          "UNETLoader",
+          "VAEDecode",
+          "VAELoader"
+        ],
+        "custom_node_packs": [],
+        "unresolved_node_types": [],
+        "frontend_nodes": [],
+        "frontend_settings": [],
+        "models": [
+          {
+            "folder": "diffusion_models",
+            "name": "qwen_image_2.1_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+            "source_node_type": "UNETLoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen3vl_8b_w4a8.safetensors",
+            "url": null,
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "vae",
+            "name": "qwen_image_2.1_vae_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
+            "url": null,
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "loras",
+            "name": "Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors",
+            "url": null,
+            "source_node_type": "LoraLoaderModelOnly"
+          }
+        ],
+        "inputs": [],
+        "executables": [],
+        "services": [],
+        "compatibility": {
+          "observed_comfyui_version": "0.44.2",
+          "observed_frontend_version": "1.57.6",
+          "observed_python_version": "3.13.15",
+          "execution_tested": false
+        },
+        "portability_warnings": []
+      }
+    },
+    {
+      "id": "minimax-h3-r2v",
+      "title": "RCP_video_minimax_h3_r2v",
+      "file": "RCP_video_minimax_h3_r2v.json",
+      "version": "1.0.0",
+      "sha256": "36466e8487e6df985727dbd9912999a2cfb9e032cbdbfa7215752308455f8db0",
+      "media": "video",
+      "description": "Local MiniMax H3 reference-to-video generation with video and audio models.",
+      "requirements": {
+        "core_node_types": [
+          "BasicGuider",
+          "BasicScheduler",
+          "CLIPLoader",
+          "ComfyMathExpression",
+          "ComfySwitchNode",
+          "CreateVideo",
+          "KSamplerSelect",
+          "LoadImage",
+          "LoraLoaderModelOnly",
+          "MiniMaxH3ReferenceToVideo",
+          "PrimitiveBoolean",
+          "PrimitiveFloat",
+          "PrimitiveInt",
+          "PrimitiveStringMultiline",
+          "RandomNoise",
+          "ResolutionSelector",
+          "SamplerCustomAdvanced",
+          "SaveVideo",
+          "UNETLoader",
+          "VAEDecode",
+          "VAEDecodeAudio",
+          "VAELoader"
+        ],
+        "custom_node_packs": [],
+        "unresolved_node_types": [],
+        "frontend_nodes": [],
+        "frontend_settings": [],
+        "models": [
+          {
+            "folder": "vae",
+            "name": "minimax_h3_video_vae_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "vae",
+            "name": "minimax_h3_audio_vae_fp32.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "diffusion_models",
+            "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "source_node_type": "UNETLoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "loras",
+            "name": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+            "source_node_type": "LoraLoaderModelOnly"
+          }
+        ],
+        "inputs": [
+          {
+            "node": 137,
+            "type": "LoadImage",
+            "filename": "ComfyUI_temp_pjpkk_00002_.png",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 139,
+            "type": "LoadImage",
+            "filename": "image (9) (1).png",
+            "connected": true,
+            "user_provided": true
+          }
+        ],
+        "executables": [],
+        "services": [],
+        "compatibility": {
+          "observed_comfyui_version": "0.44.2",
+          "observed_frontend_version": "1.57.6",
+          "observed_python_version": "3.13.15",
+          "execution_tested": false
+        },
+        "portability_warnings": []
+      }
+    },
+    {
+      "id": "minimax-h3-r2v-f2lf",
+      "title": "RCP_video_minimax_h3_r2v_f2lf",
+      "file": "RCP_video_minimax_h3_r2v_f2lf.json",
+      "version": "1.0.0",
+      "sha256": "daa0181b8d497659fb2a748058c5d7a22f05e72efc2b2c927c18c3788014ad8b",
+      "media": "video",
+      "description": "Local MiniMax H3 with reference images and first/last-frame guidance.",
+      "requirements": {
+        "core_node_types": [
+          "BasicGuider",
+          "BasicScheduler",
+          "CLIPLoader",
+          "ComfyMathExpression",
+          "ComfySwitchNode",
+          "CreateVideo",
+          "KSamplerSelect",
+          "LoadImage",
+          "LoraLoaderModelOnly",
+          "MiniMaxH3AddGuide",
+          "MiniMaxH3ReferenceToVideo",
+          "PrimitiveBoolean",
+          "PrimitiveFloat",
+          "PrimitiveInt",
+          "PrimitiveStringMultiline",
+          "RandomNoise",
+          "ResolutionSelector",
+          "SamplerCustomAdvanced",
+          "SaveVideo",
+          "UNETLoader",
+          "VAEDecode",
+          "VAEDecodeAudio",
+          "VAELoader"
+        ],
+        "custom_node_packs": [],
+        "unresolved_node_types": [],
+        "frontend_nodes": [],
+        "frontend_settings": [],
+        "models": [
+          {
+            "folder": "vae",
+            "name": "minimax_h3_video_vae_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "vae",
+            "name": "minimax_h3_audio_vae_fp32.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "diffusion_models",
+            "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "source_node_type": "UNETLoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "loras",
+            "name": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+            "source_node_type": "LoraLoaderModelOnly"
+          }
+        ],
+        "inputs": [
+          {
+            "node": 137,
+            "type": "LoadImage",
+            "filename": "tc_foxmask_charsheet.png",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 139,
+            "type": "LoadImage",
+            "filename": "tc_yellowcoat_charsheet.png",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 150,
+            "type": "LoadImage",
+            "filename": "tc_foxmask_standing.png",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 151,
+            "type": "LoadImage",
+            "filename": "tc_yellowcoat_standing.png",
+            "connected": true,
+            "user_provided": true
+          }
+        ],
+        "executables": [],
+        "services": [],
+        "compatibility": {
+          "observed_comfyui_version": "0.44.2",
+          "observed_frontend_version": "1.57.6",
+          "observed_python_version": "3.13.15",
+          "execution_tested": false
+        },
+        "portability_warnings": []
+      }
+    },
+    {
+      "id": "wan21-scail-2-loop-cr-mt",
+      "title": "RCP_wan21_scail-2_loop_cr_mt",
+      "file": "RCP_wan21_scail-2_loop_cr_mt.json",
+      "version": "1.0.1",
+      "sha256": "1cd345867ebcaf6fbf6c1334afde6c614b511096ada4724e7e67351ca21fa01b",
+      "media": "video",
+      "description": "Wan/SCAIL looped motion-transfer workflow with third-party node packs.",
+      "requirements": {
+        "core_node_types": [
+          "BasicScheduler",
+          "CLIPLoader",
+          "CLIPTextEncode",
+          "CLIPVisionEncode",
+          "CLIPVisionLoader",
+          "CheckpointLoaderSimple",
+          "ComfyMathExpression",
+          "CreateVideo",
+          "KSamplerSelect",
+          "LoadImage",
+          "LoraLoaderModelOnly",
+          "ModelSamplingSD3",
+          "PreviewImage",
+          "PrimitiveBoolean",
+          "PrimitiveFloat",
+          "PrimitiveInt",
+          "SAM3_VideoTrack",
+          "SCAIL2ColoredMask",
+          "SamplerCustom",
+          "SaveVideo",
+          "UNETLoader",
+          "VAEDecode",
+          "VAELoader",
+          "WanSCAILToVideo"
+        ],
+        "custom_node_packs": [
+          {
+            "id": "comfyui-kjnodes",
+            "node_types": [
+              "INTConstant",
+              "ImageResizeKJv2",
+              "GetImageRangeFromBatch",
+              "SetNode",
+              "GetNode"
+            ],
+            "declared_versions": [
+              "d8e9d0a01bfd3fc85a18e75d3b297c77ab454588",
+              "cdd9245a1e6e3dcc151fe4d872e9234205f87c21"
+            ],
+            "tested_version": null,
+            "name": "ComfyUI-KJNodes"
+          },
+          {
+            "id": "comfyui_mienodes",
+            "node_types": [
+              "MieLoopParamGetInt|Mie",
+              "MieLoopBodyIn|Mie",
+              "MieLoopBodyOut|Mie",
+              "MieLoopFinalizeImages|Mie",
+              "MieLoopCollectImage|Mie",
+              "MieLoopEnd|Mie",
+              "MieLoopStateGetImage|Mie",
+              "MieLoopStateSetImageBatch|Mie",
+              "MieLoopStart|Mie",
+              "MieLoopIfIsFirst|Mie",
+              "LoadOrCompute|Mie",
+              "ImageHash|Mie",
+              "StringFormat|Mie",
+              "StringHash|Mie"
+            ],
+            "declared_versions": [
+              "a3217a7a7c38dc182096a6509845247875c4c8fb",
+              "bf5cc655fb21966599ceb3a87b3ab74815c229a6",
+              "42645a40e51b27bc8b0f001a2fdc3908c5b29ebe",
+              "d386ffe22b117fa6cf14a35e00dba08fd2a352ba",
+              "36f2025c18b6fface0ea8c4257293ec6b6b4e719"
+            ],
+            "tested_version": null,
+            "name": "ComfyUI_MieNodes"
+          },
+          {
+            "id": "comfyui-videohelpersuite",
+            "node_types": [
+              "VHS_VideoInfo",
+              "VHS_LoadVideo",
+              "VHS_VideoCombine"
+            ],
+            "declared_versions": [
+              "1.7.9"
+            ],
+            "tested_version": null,
+            "name": "ComfyUI-VideoHelperSuite"
+          },
+          {
+            "id": "was-ns",
+            "name": "WAS Node Suite (Revised)",
+            "node_types": [
+              "Text String"
+            ],
+            "declared_versions": [],
+            "tested_version": null,
+            "evidence": "Comfy Registry was-ns 3.0.1 lists Text String; proposed by the ComfyUI frontend Issues panel"
+          }
+        ],
+        "unresolved_node_types": [],
+        "frontend_nodes": [
+          {
+            "type": "SetNode",
+            "pack_id": "comfyui-kjnodes",
+            "evidence": "workflow aux_id kijai/ComfyUI-KJNodes; frontend virtual wiring helper"
+          },
+          {
+            "type": "GetNode",
+            "pack_id": "comfyui-kjnodes",
+            "evidence": "workflow aux_id kijai/ComfyUI-KJNodes; frontend virtual wiring helper"
+          }
+        ],
+        "frontend_settings": [],
+        "models": [
+          {
+            "folder": "loras",
+            "name": "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+            "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+            "source_node_type": "LoraLoaderModelOnly"
+          },
+          {
+            "folder": "vae",
+            "name": "wan_2.1_vae.safetensors",
+            "url": null,
+            "source_node_type": "VAELoader"
+          },
+          {
+            "folder": "text_encoders",
+            "name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "source_node_type": "CLIPLoader"
+          },
+          {
+            "folder": "clip_vision",
+            "name": "clip_vision_h.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors",
+            "source_node_type": "CLIPVisionLoader"
+          },
+          {
+            "folder": "checkpoints",
+            "name": "sam3.1_multiplex_fp16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+            "source_node_type": "CheckpointLoaderSimple"
+          },
+          {
+            "folder": "loras",
+            "name": "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/SCAIL-2/resolve/main/loras/wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+            "source_node_type": "LoraLoaderModelOnly"
+          },
+          {
+            "folder": "diffusion_models",
+            "name": "wan2.1_14B_SCAIL_2_nvfp4_comfy_V2.safetensors",
+            "url": null,
+            "source_node_type": "UNETLoader"
+          }
+        ],
+        "inputs": [
+          {
+            "node": 469,
+            "type": "VHS_LoadVideo",
+            "filename": "@only-men  Dance arabe tiktok trend viral @24fps [wxAe4jmRv2M].mp4",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 543,
+            "type": "VHS_LoadVideo",
+            "filename": "@only-men  Dance arabe tiktok trend viral @24fps [wxAe4jmRv2M].mp4",
+            "connected": true,
+            "user_provided": true
+          },
+          {
+            "node": 30,
+            "type": "LoadImage",
+            "filename": "image (4).jpg",
+            "connected": true,
+            "user_provided": true
+          }
+        ],
+        "executables": [
+          "ffmpeg"
+        ],
+        "services": [],
+        "compatibility": {
+          "observed_comfyui_version": "0.44.2",
+          "observed_frontend_version": "1.57.6",
+          "observed_python_version": "3.13.15",
+          "execution_tested": false
+        },
+        "portability_warnings": [
+          {
+            "kind": "author_absolute_path",
+            "json_path": "/nodes/69/widgets_values/videopreview/params/fullpath"
+          },
+          {
+            "kind": "author_absolute_path",
+            "json_path": "/nodes/69/widgets_values_named/videopreview/params/fullpath"
+          }
+        ]
+      }
+    }
+  ]
+}

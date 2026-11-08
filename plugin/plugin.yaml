@@ -1,5 +1,5 @@
 name: comfy-recipe
-version: "0.3.0"
+version: "0.4.0"
 description: >
   Comfy Recipe: installs its own ComfyUI on first use (one question, no setup skills needed), then the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
   clicks Run - while you watch or step in. Plus headless runs of saved UI workflows (subgraphs included,
@@ -39,6 +39,12 @@ config_schema:
     description: >
       StabilityMatrix data folders for portable installs (the folder that contains settings.json and
       Packages/). Learned automatically once their ComfyUI has been seen running.
+  stop_with_hermes:
+    type: boolean
+    default: true
+    description: >
+      Stop Comfy Recipe's own ComfyUI when you close Hermes (the desktop app; or the Hermes process when there is no
+      desktop app), so it does not keep holding GPU memory. Turn off to keep it running in the background.
   converter_python:
     type: string
     default: ""

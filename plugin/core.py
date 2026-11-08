@@ -20,6 +20,7 @@ from pathlib import Path
 
 from . import comfy_client as cc
 from . import installer
+from . import library
 
 PLUGIN_DIR = Path(__file__).resolve().parent
 CLIENT_ID = "hermes-comfy-recipe-" + uuid.uuid4().hex[:8]
@@ -31,6 +32,7 @@ SETTINGS: dict = {
     "extra_urls": [],            # ComfyUI servers on non-standard ports, e.g. ["http://127.0.0.1:8283"]
     "stabilitymatrix_dirs": [],  # StabilityMatrix data folders (portable installs), e.g. ["D:/StabilityMatrix/Data"]
     "converter_python": "",      # a Python with comfy-cli installed; empty = auto-detect
+    "stop_with_hermes": True,    # stop Comfy Recipe's own ComfyUI when Hermes (the desktop app) is closed
 }
 
 
@@ -277,9 +279,35 @@ def setup_state() -> dict:
             if st.get("setup") != "managed":
                 _finish_setup(st)
             return {"phase": "running" if installer.server_running(d) else "stopped", "dir": str(d)}
+        if st.get("setup") == "managed" and ist.get("state") == "none":
+            # The finished install was deleted or moved by the user (folder or its .comfy-recipe marker is gone).
+            port = _previous_port(st)
+            return {"phase": "install_missing", "dir": str(d), "folder_exists": d.exists(),
+                    "old_comfyui_still_running": bool(port and installer.listener_pid(port, d.resolve().as_posix()))}
     if st.get("setup") == "existing":
         return {"phase": "existing"}
     return {"phase": "first_run"}
+
+
+def _previous_port(st: dict) -> int | None:
+    url = ((st.get("instances") or {}).get(MANAGED_NAME) or st.get("previous_managed") or {}).get("url") or ""
+    try:
+        return int(url.rsplit(":", 1)[1].split("/")[0])
+    except (IndexError, ValueError):
+        return None
+
+
+def forget_missing() -> dict:
+    """The managed install is gone: clear it so the first-run questions see every other install again. The old folder
+    and URL are kept in previous_managed (stop fallback for a still-running old process, and for the agent's message)."""
+    st = _load_state()
+    prev = {"dir": (st.get("managed") or {}).get("dir"),
+            "url": ((st.get("instances") or {}).get(MANAGED_NAME) or {}).get("url")}
+    st.update(setup=None, managed=None, active=None, instances={}, previous_managed=prev)
+    _save_state(st)
+    for f in DATA.glob(f"object_info_{MANAGED_NAME}.json"):  # node schema of the vanished install
+        f.unlink(missing_ok=True)
+    return prev
 
 
 def _finish_setup(st: dict) -> None:
@@ -328,7 +356,7 @@ def setup_check() -> dict:
     dd = installer.check_dir(d)
     alt = None
     if dd.get("synced_by") or not dd["ok"]:  # Documents synced to the cloud / unusable: propose a local alternative
-        cand = installer.check_dir(Path.home() / "ComfyRecipe")
+        cand = installer.check_dir(Path.home() / "ComfyRecipeEnv")
         alt = cand["path"] if cand["ok"] and not cand.get("synced_by") else None
     return {"setup": st.get("setup"), "phase": setup_state()["phase"], "hardware": hw["kind"], "gpus": hw["gpus"],
             "ask_gpu": len(hw["gpus"]) > 1, "pytorch_build": hw["note"], "default_dir": str(d), "default_dir_check": dd,
@@ -345,9 +373,12 @@ def setup_install(dir: str | None = None, gpu=None, share_models_from: list[str]
         raise ValueError(f"cannot install in {chk['path']}: {chk['problem']}. Ask the user for another folder.")
     if chk.get("synced_by") and not allow_synced:
         raise ValueError(f"{chk['path']} is inside {chk['synced_by']}: about 15 GB would be uploaded to the cloud and syncing "
-                         "can break the install. Ask the user to pick a local folder (e.g. " + str(Path.home() / "ComfyRecipe")
+                         "can break the install. Ask the user to pick a local folder (e.g. " + str(Path.home() / "ComfyRecipeEnv")
                          + "), or pass allow_synced=true only if they insist.")
     d = Path(chk["path"])
+    if chk.get("existing_comfy_recipe_install") and installer.manifest(d):
+        raise ValueError(f"{d} already holds a Comfy Recipe install: use comfy_setup action=adopt dir={d} to use it again "
+                         "(nothing is downloaded), or choose another folder for a new install.")
     hw = installer.detect_gpus()
     if gpu in ("", "auto"):
         gpu = None
@@ -385,18 +416,81 @@ def setup_status(wait_s: int = 0) -> dict:
     return {k: v for k, v in st.items() if k not in ("steps",)}
 
 
+_LIBRARY_SYNC = {}
+
+
+def ensure_managed_library() -> dict:
+    st = _load_state()
+    if st.get('setup') != 'managed':
+        return {'status': 'skipped', 'reason': 'Only managed installations are automatically provisioned.'}
+    d = _managed_dir(st)
+    inst = _managed_instance(st)
+    if not d or not inst or not installer.server_running(d) or not cc.alive(inst['url']):
+        return {'status': 'skipped', 'reason': 'Managed ComfyUI is not running.'}
+    try:
+        catalog = library.load_catalog()
+        key = library.canonical_hash({'instance': inst, 'catalog': catalog})
+        if key in _LIBRARY_SYNC:
+            return {'status': 'already_checked_this_process', 'library_version': catalog['library_version']}
+        result = library.publish(inst, DATA)
+        if result['complete']:
+            _LIBRARY_SYNC[key] = True
+        return result
+    except Exception as exc:
+        return {'status': 'error', 'error': f'{type(exc).__name__}: {exc}'}
+
+
+def bind_to_hermes() -> dict:
+    """Tie the running managed ComfyUI to the open Hermes (watchdog), or release it when stop_with_hermes is off."""
+    d = _managed_dir()
+    if not d or not installer.manifest(d):
+        return {"status": "no managed install"}
+    if not SETTINGS.get("stop_with_hermes", True):
+        installer.release_watchdog(d)
+        return {"status": "keeps running after Hermes closes (stop_with_hermes off)"}
+    return installer.ensure_watchdog(d, installer.hermes_owner_pids())
+
+
 def setup_start(wait_s: int = 180) -> dict:
     d = _managed_dir()
     if not d or not installer.manifest(d):
         raise ValueError("Comfy Recipe's ComfyUI is not installed yet (comfy_setup action=check / install)")
-    return installer.start(d, wait_s) | {"instance": MANAGED_NAME}
+    result = installer.start(d, wait_s) | {"instance": MANAGED_NAME}
+    if result.get('running'):
+        try:
+            result['stop_with_hermes'] = bind_to_hermes()
+        except Exception as exc:
+            result['stop_with_hermes'] = {'status': 'error', 'error': str(exc)}
+        _LIBRARY_SYNC.clear()
+        try:
+            result['library'] = ensure_managed_library()
+        except Exception as exc:
+            result['library'] = {'status': 'error', 'error': str(exc)}
+    return result
 
 
 def setup_stop() -> dict:
-    d = _managed_dir()
+    st = _load_state()
+    d = _managed_dir(st)
+    if not d and (st.get("previous_managed") or {}).get("dir"):
+        d = Path(st["previous_managed"]["dir"])  # deleted/moved install whose old ComfyUI may still run
     if not d:
         return {"stopped": False, "note": "nothing installed"}
-    return installer.stop(d)
+    return installer.stop(d, port=_previous_port(st))
+
+
+def setup_adopt(dir: str) -> dict:
+    """Use an existing Comfy Recipe install folder again (after reset, or after the user moved it). No download."""
+    if not dir:
+        raise ValueError("adopt needs dir=<full path of the Comfy Recipe install folder>")
+    res = installer.adopt(dir)
+    st = _load_state()
+    st["managed"] = {"dir": res["dir"]}
+    st.pop("previous_managed", None)
+    _finish_setup(st)
+    _LIBRARY_SYNC.clear()
+    res["next"] = "comfy_setup action=start, then open its url in the preview pane"
+    return res
 
 
 def setup_use_existing() -> dict:
@@ -410,9 +504,14 @@ def setup_reset() -> dict:
     """Forget the setup choice (first-run questions come back). Never deletes files."""
     st = _load_state()
     old = {"setup": st.get("setup"), "managed": st.get("managed")}
+    prev_url = ((st.get("instances") or {}).get(MANAGED_NAME) or {}).get("url")
     st.update(setup=None, managed=None, active=None, instances={})
+    if old["managed"]:
+        st["previous_managed"] = {"dir": old["managed"].get("dir"), "url": prev_url}
     _save_state(st)
-    return {"reset": True, "previous": old, "note": "no files were deleted"}
+    back = (old["managed"] or {}).get("dir")
+    return {"reset": True, "previous": old, "note": "no files were deleted"
+            + (f"; comfy_setup action=adopt dir={back} uses that install again" if back else "")}
 
 
 # ---------------------------------------------------------------- converter (comfy-cli, GPL-3.0, run out of process)

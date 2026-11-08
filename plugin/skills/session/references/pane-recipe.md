@@ -15,7 +15,11 @@ Run every step with the exact tool calls below; read each result before the next
 - Another workflow: `drive_preview {"action":"click","ref":"<Workflows sidebar button ref>"}` →
   `drive_preview {"action":"click","selector":"[title='<folder name>']"}` (only if it sits in a folder) →
   `drive_preview {"action":"click","selector":"[title='<workflow name without .json>']"}`.
-  Sidebar tree items have no refs — the `[title='…']` selector is the reliable way. Check the returned title.
+  Prefer tree refs when returned. On newer frontends a folder has no title: click
+  `[role='treeitem'][aria-label='<folder name>']`, then ArrowRight on its returned ref if still collapsed.
+  A file can be targeted by `[data-testid$='/<folder name>/<workflow name>.json']`; scope the folder so a same-named
+  source at the root is not opened instead. This fallback was verified with frontend 1.57.6. Check the returned
+  title AND URL UUID to distinguish original files from distributed copies.
 
 ## 2. Find what you need on the canvas
 - `drive_preview {"action":"elements","max":150}` once, when you actually need refs. Use every ref it already gives you

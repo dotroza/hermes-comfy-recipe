@@ -16,10 +16,11 @@ from pathlib import Path
 from . import core
 from . import templates
 from . import installer
+from . import library, dependencies, skill_registration
 
 TOOLSET = "comfy_recipe"
 SKILL = "comfy-recipe:session"
-SETTING_KEYS = ("personal_skill", "motto", "extra_urls", "stabilitymatrix_dirs", "converter_python")
+SETTING_KEYS = ("personal_skill", "motto", "extra_urls", "stabilitymatrix_dirs", "converter_python", "stop_with_hermes")
 _CTX = None
 
 
@@ -66,10 +67,12 @@ SCHEMAS = {
                        "repeatedly until state is done or error. action=start starts the installed ComfyUI and waits until it "
                        "answers (only ever this plugin's own install). action=stop stops it. action=use_existing = the user "
                        "prefers a ComfyUI they already have. action=check_dir dir=<path> checks a folder the user typed (writable, "
-                       "free space, empty, not cloud-synced) before installing. action=reset forgets the choice (no files deleted).",
+                       "free space, empty, not cloud-synced) before installing. action=reset forgets the choice (no files deleted). "
+                       "action=adopt dir=<folder> uses an existing Comfy Recipe install again (after reset, or after the user "
+                       "moved the folder: paths are fixed and the venv is checked; no download).",
         "parameters": {"type": "object", "properties": {
-            "action": {"type": "string", "enum": ["check", "check_dir", "install", "status", "start", "stop", "use_existing", "reset"]},
-            "dir": {"type": "string", "description": "install / check_dir: folder for the new ComfyUI (default from check)."},
+            "action": {"type": "string", "enum": ["check", "check_dir", "install", "status", "start", "stop", "use_existing", "reset", "adopt"]},
+            "dir": {"type": "string", "description": "install / check_dir: folder for the new ComfyUI (default from check). adopt: existing install folder."},
             "allow_synced": {"type": "boolean", "description": "install: the user insists on a cloud-synced folder."},
             "gpu": {"type": ["integer", "string"], "description": "install: GPU index the user chose (required when check says ask_gpu)."},
             "share_models_from": {"type": "array", "items": {"type": "string"},
@@ -90,13 +93,23 @@ SCHEMAS = {
     },
     "comfy_workflows": {
         "name": "comfy_workflows",
-        "description": "List saved workflows on the active ComfyUI (action=list, optional filter), describe one (action=describe, "
-                       "workflow=<name>) to see its subgraph controls, LoadImage nodes, prompt/text nodes and key nodes, or show "
-                       "measured run timings (action=timings).",
+        "description": "Saved ComfyUI workflows: list, describe (workflow=<saved name>), timings. "
+                       "action=library lists bundled workflow IDs offline. action=install copies bundled workflows "
+                       "into Comfy Recipe/ without overwriting user files; ask consent on existing/foreign instances. "
+                       "Optional workflow_ids selects a subset; versioned=true creates separate versioned siblings. "
+                       "action=check with workflow=<bundled stable ID> reports node/model/media/service/frontend-setting "
+                       "requirements read-only (refresh=true by default) plus setup_proposal: ALL missing node packs, models "
+                       "(link, folder, size) and settings (e.g. Nodes 2.0) to propose TOGETHER in one consent form. "
+                       "Copying JSON never installs nodes/models or runs jobs. After the one OK, do it in the visible "
+                       "window (Issues tab -> Install All, Settings) - skill comfy-recipe:session, workflow-library.md.",
         "parameters": {"type": "object", "properties": {
-            "action": {"type": "string", "enum": ["list", "describe", "timings"]},
+            "action": {"type": "string", "enum": ["list", "describe", "timings", "library", "install", "check"]},
             "workflow": {"type": "string", "description": "Workflow name or path fragment (describe / timings filter)."},
-            "filter": {"type": "string", "description": "Substring filter for list."}}, "required": ["action"]},
+            "filter": {"type": "string", "description": "Substring filter for list/library."},
+            "workflow_ids": {"type": "array", "items": {"type": "string"}, "description": "install: bundled IDs; omitted = all, [] = none."},
+            "versioned": {"type": "boolean", "description": "install: explicit separate versioned copies, never overwrite."},
+            "refresh": {"type": "boolean", "description": "check: refresh backend node schema (default true)."},
+            "instance": {"type": "string", "description": "Optional existing instance name."}}, "required": ["action"]},
     },
     "comfy_templates": {
         "name": "comfy_templates",
@@ -157,6 +170,46 @@ SCHEMAS = {
 
 def _workflows(p: dict):
     a = p.get("action", "list")
+    if a == 'library':
+        c = library.load_catalog()
+        rows = [e for e in c['workflows'] if (p.get('filter') or '').lower() in (e['id'] + ' ' + e['title']).lower()]
+        return {'source': 'bundled_library', 'library_version': c['library_version'], 'workflows': rows}
+    if a == 'install':
+        return library.publish(core._inst(p.get('instance')), core.DATA,
+                               workflow_ids=p.get('workflow_ids'), versioned=bool(p.get('versioned')))
+    if a == 'check':
+        c = library.load_catalog()
+        entry = next((e for e in c['workflows'] if e['id'] == p.get('workflow')), None)
+        if entry is None:
+            raise ValueError('check requires an exact bundled workflow ID (action=library)')
+        inst = core._inst(p.get('instance'))
+        wf = library.load_asset(entry)
+        info = json.loads(core._object_info_path(inst, refresh=p.get('refresh', True) is not False).read_text(encoding='utf-8'))
+        try:
+            settings, settings_error = core.cc.get_json(inst['url'], '/settings'), None
+            if not isinstance(settings, dict):
+                settings, settings_error = None, 'Invalid /settings response'
+        except Exception as exc:
+            settings, settings_error = None, str(exc)
+        result = dependencies.check(inst, entry, wf, info, settings, settings_error, size_of=dependencies.remote_size)
+        rel = library.FOLDER + '/' + Path(entry['file']).name
+        result['definition']['path'] = rel
+        result['definition']['scope'] = 'bundled_asset'
+        try:
+            names = core.cc.list_workflows(inst['url'])
+            if rel not in names:
+                result['definition']['working_copy'] = 'missing'
+            else:
+                saved = core.cc.load_workflow(inst['url'], rel)
+                same = library.canonical_hash(saved) == library.canonical_hash(wf)
+                result['definition']['working_copy'] = 'identical' if same else 'modified'
+                if not same:
+                    result['definition']['note'] = 'These dependency requirements describe the bundled revision, not your modified graph.'
+        except Exception as exc:
+            result['definition'].update(working_copy='unknown', error=str(exc))
+        return result
+    if a not in ('list', 'describe', 'timings'):
+        raise ValueError(f'Unknown workflow action: {a}')
     if a == "describe":
         return core.describe(p["workflow"], p.get("instance"))
     if a == "timings":
@@ -185,6 +238,8 @@ def _setup(p: dict):
         return core.setup_use_existing()
     if a == "reset":
         return core.setup_reset()
+    if a == "adopt":
+        return core.setup_adopt(p.get("dir"))
     raise ValueError(f"unknown action {a!r}")
 
 
@@ -202,7 +257,7 @@ HANDLERS = {
     "comfy_result": lambda p: core.result(p["prompt_id"], int(p.get("wait_s", 600)), p.get("instance")),
 }
 
-USAGE = ("/comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy setup | "
+USAGE = ("/comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy library [install] | /comfy check <id> | /comfy setup | "
          "/comfy run <workflow> :: <prompt>   (headless; ask Hermes for the result)")
 
 
@@ -239,6 +294,13 @@ def _command(raw_args: str) -> str:
             if not s.get("any_running"):
                 head = core.NO_BACKEND_MESSAGE + "\n" + head
             return head + ("\n".join(lines) or "(none found - add your server URL to extra_urls, see /comfy setup)")
+        if args == 'library':
+            r = _workflows({'action': 'library'})
+            return '\n'.join(f"{e['id']} — {e['title']}" for e in r['workflows'])
+        if args == 'library install':
+            return json.dumps(_workflows({'action': 'install'}), ensure_ascii=False)
+        if args.startswith('check '):
+            return json.dumps(_workflows({'action': 'check', 'workflow': args.split(None, 1)[1].strip()}), ensure_ascii=False)
         if args.startswith("setup"):
             return _setup_text()
         if args.startswith("start"):
@@ -326,7 +388,7 @@ FIRST_RUN = (
     "1. In 3-4 short lines: ComfyUI is the free app that makes images/videos from building blocks; Comfy Recipe installs "
     "its OWN copy for you, separate from anything else on the computer (other ComfyUI installs keep working and can run "
     "at the same time); it downloads about {dl} GB and needs about {need} GB of disk ({free} GB free); it takes 5-20 "
-    "minutes and nothing else needs to be installed.\n"
+    "minutes. Individual workflows may need extra models or nodes; ask about those separately later.\n"
     "2. Ask with ONE clarify call (all questions in one form, recommended option first): "
     "(a) 'Install a new ComfyUI just for Comfy Recipe (recommended)' vs 'Use a ComfyUI I already have'; "
     "{gpu_q}{models_q}({folder_letter}) 'Where should the new ComfyUI be installed? (only used for a new install)' with "
@@ -340,6 +402,7 @@ FIRST_RUN = (
     "workflows: drag a workflow .json (or an image made by ComfyUI) from your files into the ComfyUI window - the whole "
     "graph opens exactly as saved; save it with Ctrl+S to keep it in the Workflows list.'\n"
     "   Existing ComfyUI: comfy_setup action=use_existing, then follow its result (it may say no backend is running).\n"
+    "The six bundled workflow definitions are copied after startup; this does not install their dependencies. "
     "Do not open the preview pane before ComfyUI runs. Never install anything else or download models in this step.\n"
 )
 
@@ -351,6 +414,15 @@ INSTALLING = ("Comfy Recipe's own ComfyUI is being installed right now (started 
 INSTALL_FAILED = ("The last install of Comfy Recipe's own ComfyUI failed: {facts}. Explain the error simply and ask the user "
                   "whether to retry (comfy_setup action=install with the same dir) or use an existing ComfyUI "
                   "(comfy_setup action=use_existing). Do not open the preview pane.\n")
+
+INSTALL_MISSING = (
+    "Comfy Recipe's own ComfyUI was installed in {dir}, but that install is gone (folder or its .comfy-recipe marker "
+    "deleted or moved). {orphan}Tell the user this in ONE plain line, then follow the FIRST RUN instructions below with "
+    "ONE change: question (a) gets a third choice 'I moved it - I will give the new folder'. If they pick it, ask for the "
+    "full folder path (one short question), then comfy_setup action=adopt dir=<it> (no download; it fixes the paths and "
+    "checks the install still works); on success comfy_setup action=start, desktop_preview open its url (label "
+    "ComfyUI), ONE drive_preview elements call with max 5, then the card. If adopt fails, say why in one line and offer a "
+    "new install.\n")
 
 STOPPED = ("Comfy Recipe's own ComfyUI is installed but not running. Call comfy_setup action=start (it waits until ComfyUI "
            "answers, usually 15-60 s), then desktop_preview open its url (label ComfyUI), then ONE drive_preview elements "
@@ -393,6 +465,12 @@ def _session_start(personal_skill: str) -> str:
     try:
         if phase["phase"] == "first_run":
             return MOTTO_NOTE + _first_run_text() + CARD_LATER + CARD
+        if phase["phase"] == "install_missing":
+            core.forget_missing()  # before the first-run facts, so other installs are offered for model sharing again
+            orphan = ("Its old ComfyUI process is still running without its folder: call comfy_setup action=stop first. "
+                      if phase.get("old_comfyui_still_running") else "")
+            return (MOTTO_NOTE + INSTALL_MISSING.format(dir=phase["dir"], orphan=orphan) + _first_run_text()
+                    + CARD_LATER + CARD)
         if phase["phase"] == "installing":
             return MOTTO_NOTE + INSTALLING.format(facts=json.dumps(core.setup_status(0), ensure_ascii=False)) + CARD_LATER + CARD
         if phase["phase"] == "install_failed":
@@ -409,9 +487,16 @@ def _session_start(personal_skill: str) -> str:
         return (MOTTO_NOTE + "The plugin checked ComfyUI for you: " + inst["action_required"] +
                 "\nDo not call any tool for this turn unless that instruction says to.")
     row = next(r for r in inst["instances"] if r["active"])
+    if phase.get("phase") == "running":  # managed ComfyUI already up (e.g. started by an earlier session): re-bind
+        try:
+            core.bind_to_hermes()
+        except Exception:
+            pass
+    provision = core.ensure_managed_library()
     opened = _open_pane_now(row["url"])
     facts = {"name": row["name"], "launcher": row.get("launcher"), "url": row["url"], "argv": row.get("argv"),
-             "devices": row.get("devices"), "switched": inst.get("switched", {}).get("reason")}
+             "devices": row.get("devices"), "switched": inst.get("switched", {}).get("reason"),
+             "workflow_library": provision}
     step = ("The plugin has ALREADY opened that ComfyUI in the preview pane - do not call comfy_instances or "
             "desktop_preview open. Your only tool call now: ONE drive_preview elements call with max 5; its result carries "
             "the page title '<workflow name> - ComfyUI' (0 elements or 'no page' = still loading: terminal sleep 3, retry "
@@ -530,7 +615,8 @@ def register(ctx):
     for name, schema in SCHEMAS.items():
         ctx.register_tool(name=name, toolset=TOOLSET, schema=schema, handler=_wrap(HANDLERS[name]), emoji="🎨")
     ctx.register_hook("pre_llm_call", _pre_llm_call)
-    ctx.register_skill("session", Path(__file__).parent / "skills" / "session" / "SKILL.md",
-                       description="Use when driving ComfyUI live in the Hermes preview pane (Comfy Recipe).")
+    ids = {e['id'] for e in library.load_catalog()['workflows']}
+    for skill in skill_registration.skills_for_registration(Path(__file__).parent / 'skills', ids):
+        ctx.register_skill(skill['name'], skill['path'], description=skill['description'])
     ctx.register_command("comfy", handler=_command, description="ComfyUI: status, switch, workflows, setup, run",
                          args_hint="status|switch|workflows|setup|run")
