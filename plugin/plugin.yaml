@@ -9,6 +9,8 @@ homepage: https://github.com/dotroza/hermes-comfy-recipe
 license: MIT
 provides_tools:
   - comfy_setup
+  - comfy_onboarding
+  - comfy_downloads
   - comfy_instances
   - comfy_workflows
   - comfy_templates

@@ -9,6 +9,21 @@ ROOT = Path(__file__).resolve().parent / 'workflows'
 FOLDER = 'Comfy Recipe'
 
 
+def provision_startup(comfyui_root: Path) -> None:
+    """Install a frontend-only extension in our managed ComfyUI before it starts."""
+    entries = load_catalog()['workflows']
+    entries = sorted(entries, key=lambda entry: entry['id'] != 'qwen-image-2-1-t2i')
+    paths = ['workflows/' + FOLDER + '/' + PurePosixPath(entry['file']).name for entry in entries]
+    source = (ROOT.parent / 'comfyui' / 'startup.js').read_text(encoding='utf-8')
+    source = source.replace('__WORKFLOW_PATHS__', json.dumps(paths))
+    package = Path(comfyui_root) / 'custom_nodes' / 'hermes_comfy_recipe_startup'
+    (package / 'web').mkdir(parents=True, exist_ok=True)
+    (package / '__init__.py').write_text(
+        '"""Comfy Recipe first-launch tabs (no nodes or dependencies)."""\n'
+        'NODE_CLASS_MAPPINGS = {}\nWEB_DIRECTORY = "./web"\n', encoding='utf-8')
+    (package / 'web' / 'startup.js').write_text(source, encoding='utf-8')
+
+
 def canonical_hash(value: dict) -> str:
     raw = json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
     return hashlib.sha256(raw).hexdigest()

@@ -1,0 +1,49 @@
+import unittest
+from pathlib import Path
+from plugin import library,skill_registration
+
+ROOT=Path(__file__).resolve().parents[1]/'plugin'
+
+class OnboardingContentTests(unittest.TestCase):
+    def test_bundled_t2i_does_not_validate_unused_enhancer_branch(self):
+        entry=next(e for e in library.load_catalog()['workflows'] if e['id']=='qwen-image-2-1-t2i')
+        graph=library.load_asset(entry)['definitions']['subgraphs'][0]
+        parents={}
+        for link in graph['links']:
+            parents.setdefault(link['target_id'],[]).append(link['origin_id'])
+        seen=set();pending=[458]
+        while pending:
+            node=pending.pop()
+            if node in seen: continue
+            seen.add(node);pending.extend(parents.get(node,[]))
+        self.assertNotIn(477,seen,'Unused PE model remains connected to the sampler validation path')
+
+    def test_tutorial_and_prompt_skill_registered(self):
+        skills={s['name']:s for s in skill_registration.skills_for_registration(ROOT/'skills',{e['id'] for e in library.load_catalog()['workflows']})}
+        for name in ['first-image-tutorial','qwen-image-2-1-prompting']:
+            self.assertIn(name,skills)
+            self.assertEqual(skills[name]['workflow_ids'],['qwen-image-2-1-t2i'])
+        tutorial=(ROOT/'skills/first-image-tutorial/SKILL.md').read_text()
+        for token in ['drive_preview','comfy_result','begin_run=true','skip tutorial','vision_analyze','comfy_onboarding']:
+            self.assertIn(token,tutorial)
+        self.assertIn('Technical generation success',tutorial)
+        self.assertIn('replay=true',tutorial)
+        self.assertIn('workflow_path=',tutorial)
+        prompt=(ROOT/'skills/qwen-image-2-1-prompting/SKILL.md').read_text()
+        self.assertIn('exact text',prompt)
+        self.assertIn('refine_prompt',prompt)
+        self.assertIn('Chez Léa',prompt)
+
+    def test_assets_structure_contains_no_reference_media_yet(self):
+        root=ROOT/'assets'
+        self.assertTrue((root/'README.md').is_file())
+        for folder in ['images','character-sheets','motion-videos']:
+            self.assertTrue((root/folder/'.gitkeep').is_file())
+        self.assertEqual([p.name for p in root.rglob('*') if p.is_file() and p.suffix.lower() in ['.png','.jpg','.mp4']],[])
+
+    def test_first_run_instructions_do_not_force_ordinary_question(self):
+        import plugin
+        self.assertIn('comfy_onboarding',plugin.FIRST_RUN)
+        self.assertNotIn('and nothing else',plugin.CARD)
+        skill=(ROOT/'skills/session/SKILL.md').read_text()
+        self.assertIn('/comfy tutorial',skill)

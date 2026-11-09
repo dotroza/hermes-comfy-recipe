@@ -1,6 +1,6 @@
 {
   "id": "8a9215e4-e5a8-52f1-82f4-0f23eabed74d",
-  "revision": 1,
+  "revision": 2,
   "last_node_id": 516,
   "last_link_id": 845,
   "nodes": [
@@ -521,7 +521,8 @@
             "type": "STRING",
             "linkIds": [
               739,
-              802
+              802,
+              791
             ],
             "localized_name": "prompt",
             "label": "positive_prompt",
@@ -1501,9 +1502,7 @@
                 "localized_name": "output",
                 "name": "output",
                 "type": "STRING",
-                "links": [
-                  791
-                ]
+                "links": []
               }
             ],
             "properties": {
@@ -2045,8 +2044,8 @@
           },
           {
             "id": 791,
-            "origin_id": 484,
-            "origin_slot": 0,
+            "origin_id": -10,
+            "origin_slot": 1,
             "target_id": 480,
             "target_slot": 0,
             "type": "STRING"
@@ -2298,7 +2297,8 @@
         -353.7005106622992,
         -1913.377499006205
       ]
-    }
+    },
+    "comfy_recipe_prompt_enhancement": "Hermes skill; built-in enhancer branch disconnected from output to avoid unused model validation."
   },
   "version": 0.4
 }

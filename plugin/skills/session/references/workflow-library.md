@@ -26,6 +26,17 @@ the working copy has not been installed; `unknown` means it could not be inspect
 Do not treat missing core nodes as arbitrary custom packs; a compatible ComfyUI update needs separate consent
 (`setup_proposal.blockers`).
 
+## Fresh managed install: independent setup choices
+
+Before the ordinary question, call `comfy_onboarding action=status`. Its proposal covers all six graphs,
+deduplicates files/packs and shows verified missing-download GB. Use one form with independent choices for nodes
+now (recommended) vs on use, and models on use (recommended) vs now. Unknown sizes/manual files must remain explicit;
+settings require separate consent in the same form. Record only submitted answers. Base installation is not consent.
+Open each affected graph visibly to access its Issues panel; one graph does not list every pack in the library.
+Perform only approved categories. Recheck via `comfy_onboarding action=status refresh=true`, then start the tutorial.
+If installation fails, offer retry/skip without claiming readiness or completion. Existing-user ordinary workflow use
+still follows the per-workflow proposal below. Shared models are never copied and new downloads stay in our install.
+
 ## Set up a workflow: ONE proposal for packs, models and settings
 
 `setup_proposal` in the check result is the whole to-do list. Propose it in ONE go, never pack-by-pack or

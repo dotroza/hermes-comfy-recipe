@@ -56,6 +56,14 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
 - `dependencies.py` checks evidence without installing anything. Refresh schema after consented Manager installation.
 - Standard-library tests: `python -m unittest discover -s tests -v`; authoring details in `docs/WORKFLOW_LIBRARY.md`.
 
+## Onboarding
+- See `docs/ONBOARDING.md` for state, migration, replay and consent contracts.
+- `onboarding.py` holds transactional records and backend image evidence; `onboarding_flow.py` adapts reports/instructions.
+- `comfy_onboarding` receives calling-session identity through tool context. Do not accept session ids from model args.
+- `/comfy tutorial` uses public command context and persists next-turn hook routing; no gateway injection grant is needed.
+- New-install provenance is written by the installer; an absent onboarding record alone does not imply a fresh install.
+- Test with `python -m unittest discover -s tests -p 'test_onboarding*.py' -v` and `test_tutorial_evidence.py`.
+
 ## Repo hygiene
 - Two plugins registering the same tool names cannot both be enabled — disable the old one before enabling a rename.
 - Scan new public repos for personal refs (`grep -rniE "<username>|<project>|<port>"`) before publishing.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "library_version": "1.0.1",
+  "library_version": "1.1.0",
   "workflows": [
     {
       "id": "ace-step1-5-xl-base",
@@ -128,8 +128,9 @@
           {
             "folder": "text_encoders",
             "name": "qwen3vl_8b_w4a8.safetensors",
-            "url": null,
-            "source_node_type": "CLIPLoader"
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors",
+            "source_node_type": "CLIPLoader",
+            "size_bytes": 6312105364
           },
           {
             "folder": "vae",
@@ -140,14 +141,18 @@
           {
             "folder": "text_encoders",
             "name": "qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
-            "url": null,
-            "source_node_type": "CLIPLoader"
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
+            "source_node_type": "CLIPLoader",
+            "validation_note": "The image-edit graph still connects this loader; backend validation may require its file even with refine_prompt off.",
+            "size_bytes": 6724090764
           },
           {
             "folder": "loras",
             "name": "Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors",
-            "url": null,
-            "source_node_type": "LoraLoaderModelOnly"
+            "url": "https://huggingface.co/lightx2v/Qwen-Image-2.1-Lightning/resolve/main/pytorch_lora_weights.safetensors",
+            "source_node_type": "LoraLoaderModelOnly",
+            "size_bytes": 67144280,
+            "url_note": "Published upstream as pytorch_lora_weights.safetensors; saved under the name the graph expects."
           }
         ],
         "inputs": [
@@ -181,8 +186,8 @@
       "id": "qwen-image-2-1-t2i",
       "title": "RCP_qwen_image_2_1_t2i",
       "file": "RCP_qwen_image_2_1_t2i.json",
-      "version": "1.0.0",
-      "sha256": "318fcb4caf384c147105c108fe921556fe8b385d05e4f19f137b6fb116fc7b87",
+      "version": "1.1.0",
+      "sha256": "ea685fd7a44cd30b00f38b2a09b7e6aa11f0eb2d56f0136d71ff2d4b2c264c6a",
       "media": "image",
       "description": "Generate an image from text, without photo inputs.",
       "requirements": {
@@ -217,8 +222,9 @@
           {
             "folder": "text_encoders",
             "name": "qwen3vl_8b_w4a8.safetensors",
-            "url": null,
-            "source_node_type": "CLIPLoader"
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors",
+            "source_node_type": "CLIPLoader",
+            "size_bytes": 6312105364
           },
           {
             "folder": "vae",
@@ -229,14 +235,19 @@
           {
             "folder": "text_encoders",
             "name": "qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
-            "url": null,
-            "source_node_type": "CLIPLoader"
+            "optional": true,
+            "optional_reason": "Only needed when refine_prompt is enabled; disabled in the bundled defaults and tutorial",
+            "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
+            "source_node_type": "CLIPLoader",
+            "size_bytes": 6724090764
           },
           {
             "folder": "loras",
             "name": "Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors",
-            "url": null,
-            "source_node_type": "LoraLoaderModelOnly"
+            "url": "https://huggingface.co/lightx2v/Qwen-Image-2.1-Lightning/resolve/main/pytorch_lora_weights.safetensors",
+            "source_node_type": "LoraLoaderModelOnly",
+            "size_bytes": 67144280,
+            "url_note": "Published upstream as pytorch_lora_weights.safetensors; saved under the name the graph expects."
           }
         ],
         "inputs": [],
@@ -586,8 +597,9 @@
           {
             "folder": "vae",
             "name": "wan_2.1_vae.safetensors",
-            "url": null,
-            "source_node_type": "VAELoader"
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
+            "source_node_type": "VAELoader",
+            "size_bytes": 253815318
           },
           {
             "folder": "text_encoders",
@@ -616,8 +628,10 @@
           {
             "folder": "diffusion_models",
             "name": "wan2.1_14B_SCAIL_2_nvfp4_comfy_V2.safetensors",
-            "url": null,
-            "source_node_type": "UNETLoader"
+            "url": "https://huggingface.co/LHQAQ-Li/wan2.1_14B_SCAIL_2_nvfp4_comfy_V2/resolve/main/wan2.1_14B_SCAIL_2_nvfp4_comfy_V2.safetensors",
+            "source_node_type": "UNETLoader",
+            "size_bytes": 9566717200,
+            "url_note": "Community nvfp4 conversion (LHQAQ-Li); not an official Comfy-Org file."
           }
         ],
         "inputs": [

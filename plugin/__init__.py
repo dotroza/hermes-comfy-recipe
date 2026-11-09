@@ -1,6 +1,7 @@
 """Comfy Recipe - Hermes plugin to work in a local ComfyUI, visibly in the preview pane or headless.
 
-Tools: comfy_setup, comfy_instances, comfy_workflows, comfy_templates, comfy_run, comfy_result.  Command: /comfy.
+Tools: comfy_setup, comfy_onboarding, comfy_downloads, comfy_instances, comfy_workflows, comfy_templates, comfy_run,
+comfy_result.  Command: /comfy.
 First run: the kickoff asks whether to install Comfy Recipe's OWN ComfyUI (installer.py, uv-based, separate from any
 other ComfyUI on the machine) or to use an existing one.
 Hook: pre_llm_call (ComfyUI-session instructions, model-side only).  Skill: comfy-recipe:session.
@@ -16,7 +17,7 @@ from pathlib import Path
 from . import core
 from . import templates
 from . import installer
-from . import library, dependencies, skill_registration
+from . import library, dependencies, skill_registration, onboarding_flow, download_flow
 
 TOOLSET = "comfy_recipe"
 SKILL = "comfy-recipe:session"
@@ -47,16 +48,73 @@ def _ok(data) -> str:
 
 def _wrap(fn):
     def handler(params, **kwargs):
-        del kwargs
         try:
             _sync_settings()
-            return _ok(fn(params or {}))
+            result = fn(params or {})
+            if fn is _setup and isinstance(result, dict) and (result.get('running') or result.get('state') == 'done'):
+                result['onboarding_instruction'] = ('After ComfyUI is running and open in the pane, call comfy_onboarding action=status. '
+                    'Follow its next_step before the ordinary question. Base install consent does not authorize node/model downloads.')
+            if isinstance(result, dict) and result.get('progress_card'):
+                result['progress_card_rule'] = onboarding_flow.CARD_RULE.strip()
+            return _ok(result)
         except Exception as e:  # tools must return JSON, not raise
             return json.dumps({"success": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False)
     return handler
 
 
+def _onboarding_handler(params, *, session_id=None, task_id=None, **kwargs):
+    try:
+        _sync_settings()
+        return _ok(onboarding_flow.handle(params or {}, session_id or task_id))
+    except Exception as exc:
+        return json.dumps({'success': False, 'error': f'{type(exc).__name__}: {exc}'})
+
+
 SCHEMAS = {
+    "comfy_onboarding": {
+        "name": "comfy_onboarding",
+        "description": "Managed-install setup choices and the step-by-step tutorial (step 1/6 Generate your first image = text-to-image, step 2/6 Modify an image = image edit; steps 3-6 not built yet). status reports missing requirements and verified model download GB; preferences records explicit node/model choices (models=now queues every download, tutorial step 1 first). tutorial starts or continues a step (step=1|2, replay=true restarts, resume=true goes back to where the user left off) and queues that step's model downloads when the setup choice allows; begin_run=true snapshots history immediately before a visible Run. complete verifies an explicit prompt_id against backend image evidence; skip exits. Results may carry progress_card (a MEDIA line to post once). All runs stay visible through drive_preview. Session identity comes from runtime, not arguments.",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["status", "preferences", "tutorial", "complete", "skip"]},
+            "nodes": {"type": "string", "enum": ["now", "on_use"]},
+            "models": {"type": "string", "enum": ["now", "on_use"]},
+            "step": {"type": "integer", "enum": [1, 2], "description": "tutorial: which step (1 = first image, 2 = modify an image)"},
+            "resume": {"type": "boolean", "description": "tutorial: go back to the tutorial where the user left off"},
+            "workflow": {"type": "string", "description": "status: optional bundled workflow id for on-use readiness"},
+            "workflow_path": {"type": "string", "description": "tutorial begin_run: exact selected saved path of this step's workflow, including any -v1.1.0 suffix; read it from the visible workflow selection"},
+            "replay": {"type": "boolean"}, "begin_run": {"type": "boolean"},
+            "refresh": {"type": "boolean", "description": "status: recheck all six workflows after approved setup work"},
+            "prompt": {"type": "string", "description": "tutorial begin_run: exact enhanced text entered visibly; only a hash is stored"},
+            "prompt_id": {"type": "string", "description": "complete: explicit id of the corresponding window run, not latest"}
+        }, "required": ["action"], "additionalProperties": False},
+    },
+    "comfy_downloads": {
+        "name": "comfy_downloads",
+        "description": "Download model files for ComfyUI in the BACKGROUND with live progress (byte-accurate, resumable). "
+                       "Order: tutorial step 1 files, then tutorial step 2, then the rest (smallest first). "
+                       "action=start queues missing files of bundled workflows (workflow_ids, omitted = all), of a "
+                       "saved workflow the user brought (workflow=<saved path>: reads the model links its loader nodes "
+                       "declare) or an explicit models list - only after the user agreed to the download. Returns "
+                       "progress_card: post that MEDIA:<path> line ONCE on its own line, the desktop app shows a live "
+                       "progress card + status-bar chip. action=status reads progress; action=wait group=tutorial-1|"
+                       "tutorial-2 (wait_s up to 900) blocks until that group is ready; action=cancel stops queued files. "
+                       "action=watch_nodes packs=[names] mirrors ComfyUI-Manager's node-pack install queue into a progress "
+                       "card: call it right BEFORE clicking Install All in the window; nodes_status reads it. Models "
+                       "without a download link are listed in models_without_url (never substitute similar files).",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["start", "status", "wait", "cancel", "watch_nodes", "nodes_status"]},
+            "workflow_ids": {"type": "array", "items": {"type": "string"}, "description": "start: bundled workflow IDs"},
+            "workflow": {"type": "string", "description": "start: a saved workflow (name or path) whose missing models to fetch"},
+            "models": {"type": "array", "items": {"type": "object", "properties": {
+                "folder": {"type": "string"}, "name": {"type": "string"}, "url": {"type": "string"},
+                "size_bytes": {"type": "integer"}}, "required": ["folder", "name", "url"]},
+                "description": "start: explicit files (e.g. a check's setup_proposal.models)"},
+            "group": {"type": "string", "description": "wait: tutorial-1 | tutorial-2 | other (omitted = everything)"},
+            "wait_s": {"type": "integer"},
+            "packs": {"type": "array", "items": {"type": "string"}, "description": "watch_nodes: pack names shown on the card"},
+            "instance": {"type": "string", "description": "Optional ComfyUI instance (default: active)"}},
+            "required": ["action"]},
+    },
     "comfy_setup": {
         "name": "comfy_setup",
         "description": "Comfy Recipe's OWN ComfyUI (separate from any other ComfyUI on the machine). action=check: facts for the "
@@ -244,6 +302,8 @@ def _setup(p: dict):
 
 
 HANDLERS = {
+    "comfy_onboarding": _onboarding_handler,
+    "comfy_downloads": download_flow.handle,
     "comfy_setup": _setup,
     "comfy_instances": lambda p: core.instances(p.get("action", "list"), p.get("name")),
     "comfy_workflows": _workflows,
@@ -257,7 +317,7 @@ HANDLERS = {
     "comfy_result": lambda p: core.result(p["prompt_id"], int(p.get("wait_s", 600)), p.get("instance")),
 }
 
-USAGE = ("/comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy library [install] | /comfy check <id> | /comfy setup | "
+USAGE = ("/comfy tutorial [2] | /comfy downloads | /comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy library [install] | /comfy check <id> | /comfy setup | "
          "/comfy run <workflow> :: <prompt>   (headless; ask Hermes for the result)")
 
 
@@ -279,7 +339,7 @@ def _setup_text() -> str:
     return "\n".join(lines)
 
 
-def _command(raw_args: str) -> str:
+def _command(raw_args: str, *, session_id: str = '', session_key: str = '', platform: str = '', source=None) -> str:
     args = (raw_args or "").strip()
     try:
         _sync_settings()
@@ -294,6 +354,21 @@ def _command(raw_args: str) -> str:
             if not s.get("any_running"):
                 head = core.NO_BACKEND_MESSAGE + "\n" + head
             return head + ("\n".join(lines) or "(none found - add your server URL to extra_urls, see /comfy setup)")
+        if args == 'tutorial':
+            return onboarding_flow.command(session_id)
+        if args.startswith('tutorial '):
+            step = args.split(None, 1)[1].strip().removeprefix('step').strip()
+            if step in ('1', '2'):
+                return onboarding_flow.command(session_id, int(step))
+            return 'Tutorial steps 1 (Generate your first image) and 2 (Modify an image) are available: /comfy tutorial 2.'
+        if args.startswith('downloads'):
+            r = download_flow.handle({'action': 'status'})
+            if r.get('state') in (None, 'idle'):
+                return 'No model downloads queued.'
+            rows = [f"Model downloads: {r['state']} - {r['done_files']}/{r['files']} files, "
+                    f"{r['bytes'] / 1e9:.2f}/{r['total_bytes'] / 1e9:.2f} GB ({r['percent']}%)"]
+            rows += [f"  {g['label']}: {g['state']} ({g['done_files']}/{g['files']})" for g in r.get('groups', [])]
+            return '\n'.join(rows)
         if args == 'library':
             r = _workflows({'action': 'library'})
             return '\n'.join(f"{e['id']} — {e['title']}" for e in r['workflows'])
@@ -351,14 +426,16 @@ def _skills_to_load(personal_skill: str) -> str:
 
 CARD = (
     "Answer with exactly this structure, filling every <field> from the facts above and the page title (never copy "
-    "example values, never write an @url: reference), and nothing else:\n"
+    "example values, never write an @url: reference). After this summary follow onboarding when present:\n"
     "### 🎨 ComfyUI ready\n"
     "The ComfyUI window on the right is open and under my control.\n\n"
     "- **Instance:** `<name>` (<launcher>) · [<url>](<url>)\n"
     "- **GPU:** <device name> (<cuda:N from argv, or 'not pinned'>) · <free> / <total> GB free\n"
     "- **Workflow:** `<active workflow name from the page title, without ' - ComfyUI'; add * if the title starts with *>`\n\n"
     "I'll make every change and start every run myself in that window. You can also work in the window yourself "
-    "to show me what you want. **What should I do first?**"
+    "to show me what you want.\n"
+    "For a fresh managed install, call comfy_onboarding action=status and follow setup_choices/tutorial before asking the ordinary question. "
+    "For returning sessions (next_step=ordinary), finish with: **What would you like to do?**"
 )
 
 CARD_LATER = ("The card below is ONLY for the moment ComfyUI is open in the pane - NOT for this first answer, which is "
@@ -397,17 +474,22 @@ FIRST_RUN = (
     "3. New install: if the user typed their own folder, first comfy_setup action=check_dir dir=<it>; if not ok or "
     "synced_by is set, tell them why in one line and ask again. Then comfy_setup action=install with dir, gpu{share_arg}. Then call comfy_setup action=status wait_s=300 "
     "again and again; after each finished step tell the user ONE short line (step x/7 and what it was); on error show the "
-    "error and the log tail, and suggest a fix. When state is done: comfy_setup action=start, then desktop_preview open "
+    "error and the log tail, and suggest a fix. The install result carries progress_card: put that MEDIA:<path> line "
+    "ONCE alone on its own line in your reply right after starting the install (it becomes a live progress bar in the "
+    "chat and the status bar). When state is done: comfy_setup action=start, then desktop_preview open "
     "its url (label ComfyUI), ONE drive_preview elements call with max 5, then the card below, then this tip: 'Bring your "
     "workflows: drag a workflow .json (or an image made by ComfyUI) from your files into the ComfyUI window - the whole "
     "graph opens exactly as saved; save it with Ctrl+S to keep it in the Workflows list.'\n"
     "   Existing ComfyUI: comfy_setup action=use_existing, then follow its result (it may say no backend is running).\n"
     "The six bundled workflow definitions are copied after startup; this does not install their dependencies. "
-    "Do not open the preview pane before ComfyUI runs. Never install anything else or download models in this step.\n"
+    "Do not open the preview pane before ComfyUI runs. Base installation itself does not authorize extra nodes/models. "
+    "Once the pane is open, call comfy_onboarding action=status: ask the independent setup choices, perform only approved work, "
+    "then start the first-image tutorial. Do not end a fresh install with the ordinary question.\n"
 )
 
 INSTALLING = ("Comfy Recipe's own ComfyUI is being installed right now (started earlier): {facts}. Tell the user in one "
-              "line, then keep calling comfy_setup action=status wait_s=300, one short line per finished step, and when "
+              "line and put its progress_card MEDIA:<path> line once alone on its own line (live progress bar), "
+              "then keep calling comfy_setup action=status wait_s=300, one short line per finished step, and when "
               "done: comfy_setup action=start, desktop_preview open its url (label ComfyUI), ONE drive_preview elements "
               "call with max 5, then the card below.\n")
 
@@ -427,7 +509,7 @@ INSTALL_MISSING = (
 STOPPED = ("Comfy Recipe's own ComfyUI is installed but not running. Call comfy_setup action=start (it waits until ComfyUI "
            "answers, usually 15-60 s), then desktop_preview open its url (label ComfyUI), then ONE drive_preview elements "
            "call with max 5 - its result carries the page title '<workflow name> - ComfyUI'. Do NOT inspect the workflow "
-           "now and do not load skills yet. Then wait for my instructions.\n")
+           "now unless onboarding requires setup. Call comfy_onboarding action=status and follow next_step before the ordinary question.\n")
 
 
 def _first_run_text() -> str:
@@ -507,7 +589,7 @@ def _session_start(personal_skill: str) -> str:
             "ComfyUI facts resolved by the plugin (use them, don't re-query): " + json.dumps(facts, ensure_ascii=False) + "\n"
             + ("Mention in one line that the plugin switched instance: " + facts["switched"] + "\n" if facts["switched"] else "")
             + step + " Do NOT inspect the workflow now (no prompt, nodes, widgets, other tabs or queue) and do not load "
-            "skills yet. Then wait for my instructions.\n" + CARD)
+            "skills yet ONLY for ordinary returning sessions. If onboarding provides a next step, follow it instead of waiting.\n" + CARD)
 
 
 SESSION_RULES = (
@@ -522,7 +604,11 @@ SESSION_RULES = (
     "window concerned instead of assuming its earlier state. Never change a prompt, number, seed or image by editing the "
     "workflow JSON. Never click Fit View to find a node: zoomed out, ComfyUI hides the textareas and file buttons - use "
     "the right panel's Nodes tab -> 'Locate node on canvas' instead. Never use browser_* tools (a different, invisible "
-    "browser). If drive_preview says no window answered, ask me to click into this chat and wait."
+    "browser). If drive_preview says no window answered, ask me to click into this chat and wait. "
+    "If I ask for the tutorial (start, replay, continue, go back to it), call comfy_onboarding action=tutorial "
+    "(resume=true to continue, step=2 for 'Modify an image'). If I bring my own workflow and ask to install its "
+    "dependencies: comfy_workflows describe/check, ONE consent form, then comfy_downloads action=start workflow=<path> for "
+    "models (post its progress_card once) and comfy_downloads action=watch_nodes right before Install All for node packs."
 )
 
 
@@ -597,9 +683,13 @@ def _pre_llm_call(user_message=None, conversation_history=None, is_first_turn=No
         if is_first_turn:
             _hold_placeholder_title(session_id)
             personal = str(_settings().get("personal_skill") or "").strip()
-            return {"context": _session_start(personal) + "\n" + SESSION_RULES}
+            return {"context": _session_start(personal) + "\n" + SESSION_RULES + "\n" + onboarding_flow.context(session_id)}
         return {"context": SESSION_RULES}
-    if users and _text(users[0].get("content")).startswith(SESSION_MARKER):
+    recipe_session = bool(users and _text(users[0].get("content")).startswith(SESSION_MARKER))
+    routed = onboarding_flow.route(user_message, session_id, recipe_session=recipe_session)
+    if routed:
+        return {"context": SESSION_RULES + "\n" + routed}
+    if recipe_session:
         requests = [m for m in users if not _text(m.get("content")).startswith((SESSION_MARKER, "[System", "[SYSTEM]"))]
         first = len(requests) <= 1  # this turn is the user's first real request
         if first:
@@ -613,10 +703,10 @@ def register(ctx):
     global _CTX
     _CTX = ctx
     for name, schema in SCHEMAS.items():
-        ctx.register_tool(name=name, toolset=TOOLSET, schema=schema, handler=_wrap(HANDLERS[name]), emoji="🎨")
+        ctx.register_tool(name=name, toolset=TOOLSET, schema=schema, handler=(_onboarding_handler if name == "comfy_onboarding" else _wrap(HANDLERS[name])), emoji="🎨")
     ctx.register_hook("pre_llm_call", _pre_llm_call)
     ids = {e['id'] for e in library.load_catalog()['workflows']}
     for skill in skill_registration.skills_for_registration(Path(__file__).parent / 'skills', ids):
         ctx.register_skill(skill['name'], skill['path'], description=skill['description'])
     ctx.register_command("comfy", handler=_command, description="ComfyUI: status, switch, workflows, setup, run",
-                         args_hint="status|switch|workflows|setup|run")
+                         args_hint="status|switch|workflows|setup|tutorial|run")

@@ -455,6 +455,7 @@ def setup_start(wait_s: int = 180) -> dict:
     d = _managed_dir()
     if not d or not installer.manifest(d):
         raise ValueError("Comfy Recipe's ComfyUI is not installed yet (comfy_setup action=check / install)")
+    library.provision_startup(d / 'ComfyUI')
     result = installer.start(d, wait_s) | {"instance": MANAGED_NAME}
     if result.get('running'):
         try:

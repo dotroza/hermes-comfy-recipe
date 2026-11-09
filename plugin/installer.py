@@ -35,6 +35,22 @@ IS_WIN = os.name == "nt"
 STEPS = ["Get the uv installer", "Download Python " + PYTHON_VERSION, "Download ComfyUI",
          "Install PyTorch for your GPU (largest download)", "Install ComfyUI and ComfyUI-Manager",
          "Link shared models", "Check the GPU works"]
+# Rough share of the total install time per step (sums to 100): drives the desktop progress bar.
+STEP_WEIGHTS = [2, 4, 8, 55, 22, 2, 7]
+CARD = {"kind": "install", "title": "Installing ComfyUI", "steps": STEPS, "weights": STEP_WEIGHTS}
+
+
+def progress_card(d) -> str:
+    """MEDIA line of the install progress card (the installer's own status.json)."""
+    return "MEDIA:" + str(_meta(Path(d).expanduser()) / "status.json")
+
+
+def install_identity(previous: dict | None = None) -> dict:
+    """New installations opt into onboarding; a retry keeps its stable identity."""
+    import uuid
+    previous = previous or {}
+    return {'install_id': previous.get('install_id') or str(uuid.uuid4()),
+            'onboarding_version': previous.get('onboarding_version', 1)}
 
 
 def documents_dir() -> Path:
@@ -322,7 +338,7 @@ def install(d: Path, port: int, gpu: int | None, share_from: list[str] | None) -
     meta = _meta(d)
     meta.mkdir(parents=True, exist_ok=True)
     logf = (meta / "install.log").open("a", encoding="utf-8")
-    status = {"state": "running", "pid": os.getpid(), "dir": str(d), "steps": STEPS, "step": 0, "step_name": STEPS[0],
+    status = {**CARD, "state": "running", "pid": os.getpid(), "dir": str(d), "step": 0, "step_name": STEPS[0],
               "started_at": time.time(), "updated_at": time.time(), "log": str(meta / "install.log")}
 
     def log(msg: str) -> None:
@@ -401,7 +417,7 @@ def install(d: Path, port: int, gpu: int | None, share_from: list[str] | None) -
         tc = json.loads(check.strip().splitlines()[-1])
         if hw["kind"] == "nvidia" and not tc["cuda"]:
             raise RuntimeError("PyTorch was installed but cannot see the NVIDIA GPU (update the NVIDIA driver, then reinstall)")
-        _write(meta / "manifest.json", {"version": 1, "dir": str(d), "comfyui_dir": str(src), "python": str(_vpy(d)),
+        _write(meta / "manifest.json", {**install_identity(manifest(d)), "version": 1, "dir": str(d), "comfyui_dir": str(src), "python": str(_vpy(d)),
                                         "port": port, "gpu": gpu, "hardware": hw["kind"], "torch": tc,
                                         "comfyui_version": status.get("comfyui_version"), "shared_models": share_from or [],
                                         "installed_at": time.time()})
@@ -459,7 +475,7 @@ def spawn_install(d, port: int, gpu: int | None, share_from: list[str] | None) -
     if st.get("state") == "running" and st.get("alive"):
         return st
     meta.mkdir(parents=True, exist_ok=True)
-    _write(meta / "status.json", {"state": "running", "dir": str(d), "steps": STEPS, "step": 0, "step_name": "starting",
+    _write(meta / "status.json", {**CARD, "state": "running", "dir": str(d), "step": 0, "step_name": "starting",
                                   "started_at": time.time(), "updated_at": time.time(), "log": str(meta / "install.log")})
     args = [_host_python(), str(Path(__file__).resolve()), "run", str(d), "--port", str(port)]
     if gpu is not None:
@@ -535,6 +551,7 @@ def install_status(d, tail: int = 8) -> dict:
         st["log_tail"] = [ln[-200:] for ln in lines[-tail:]]
     st["elapsed_s"] = round(time.time() - st.get("started_at", time.time()))
     st["step_of"] = f"{min(st.get('step', 0) + 1, len(STEPS))}/{len(STEPS)}"
+    st["progress_card"] = progress_card(d)
     return st
 
 

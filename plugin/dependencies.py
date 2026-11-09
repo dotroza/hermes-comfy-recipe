@@ -34,6 +34,108 @@ def remote_size(url: str, timeout: float = 8.0) -> int | None:
         return None
 
 
+def cached_size_lookup(data_dir, lookup=remote_size, clock=None):
+    """One-hour bounded metadata cache. No model payload is downloaded."""
+    from contextlib import closing
+    import sqlite3
+    import time
+    from pathlib import Path
+    clock = clock or time.time
+    root = Path(data_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / 'model-sizes.sqlite3'
+    with closing(sqlite3.connect(path, timeout=10)) as db, db:
+        db.execute('CREATE TABLE IF NOT EXISTS sizes (url TEXT PRIMARY KEY, bytes INTEGER, checked REAL)')
+    def size_of(url):
+        now = clock()
+        with closing(sqlite3.connect(path, timeout=10)) as db, db:
+            row = db.execute('SELECT bytes, checked FROM sizes WHERE url=?', (url,)).fetchone()
+        if row and 0 <= now - row[1] < 3600:
+            return row[0]
+        value = lookup(url)
+        with closing(sqlite3.connect(path, timeout=10)) as db, db:
+            db.execute('INSERT OR REPLACE INTO sizes VALUES (?,?,?)', (url, value, now))
+            db.execute('DELETE FROM sizes WHERE url NOT IN (SELECT url FROM sizes ORDER BY checked DESC LIMIT 512)')
+        return value
+    return size_of
+
+
+def library_proposal(reports: list[dict], size_of=remote_size) -> dict:
+    """Missing default requirements across workflows; no installation or generation."""
+    from concurrent.futures import ThreadPoolExecutor
+    packs, targets, settings = {}, {}, {}
+    blockers, unknown, optional = [], [], []
+    inputs, executables, services, warnings, compatibility = [], [], [], [], []
+    for report in reports:
+        workflow_id = report.get('workflow_id')
+        inputs.extend(dict(row, workflow_id=workflow_id) for row in report.get('inputs', []))
+        executables.extend(dict(row, workflow_id=workflow_id) for row in report.get('executables', []))
+        services.extend(dict(row, workflow_id=workflow_id) for row in report.get('services', []))
+        warnings.extend({'workflow_id': workflow_id, 'warning': row} for row in report.get('portability_warnings', []))
+        if report.get('compatibility'):
+            compatibility.append(dict(report['compatibility'], workflow_id=workflow_id))
+        nodes = report['nodes']
+        blockers.extend(nodes.get('missing_core', []) + nodes.get('unresolved', []))
+        for pack in nodes.get('missing_packs', []):
+            packs.setdefault(pack['id'], pack)
+        for setting in report.get('settings', []):
+            if setting.get('status') == 'unknown':
+                unknown.append({'setting': setting['id']})
+            if setting.get('status') != 'needs_change':
+                continue
+            old = settings.get(setting['id'])
+            if old and old['value'] != setting['value']:
+                blockers.append('Conflicting frontend setting: ' + setting['id'])
+            settings[setting['id']] = setting
+        for model in report.get('models', []):
+            if model.get('status') == 'unknown':
+                unknown.append(model)
+                continue
+            if model.get('status') != 'missing':
+                continue
+            if model.get('optional'):
+                optional.append(model)
+                continue
+            folder, name = model['folder'], model['name'].replace('\\', '/')
+            if ('/' in folder or '\\' in folder or folder in ('', '.', '..') or
+                    PureWindowsPath(name).drive or PurePosixPath(name).is_absolute() or
+                    '..' in PurePosixPath(name).parts):
+                raise ValueError('Unsafe model destination')
+            key = (folder, name)
+            row = dict(model, name=name)
+            if key in targets and targets[key].get('url') != row.get('url'):
+                blockers.append('Conflicting model URLs: ' + folder + '/' + name)
+                targets[key]['url'] = None
+            else:
+                targets.setdefault(key, row)
+    urls = sorted({row['url'] for row in targets.values() if row.get('url')})
+    def lookup(url):
+        try:
+            value = size_of(url)
+            return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+        except Exception:
+            return None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        sizes = dict(zip(urls, pool.map(lookup, urls)))
+    models, manual = [], []
+    for row in targets.values():
+        size = sizes.get(row.get('url'))
+        row = dict(row, size_bytes=size, size_gb=round(size / 1e9, 2) if size else None)
+        (models if row.get('url') else manual).append(row)
+    total = sum(row['size_bytes'] or 0 for row in models)
+    unknown_sizes = sum(row['size_bytes'] is None for row in models) + len(manual)
+    return {'node_packs': list(packs.values()), 'models': models, 'optional_models': optional,
+            'settings': list(settings.values()), 'blockers': sorted(set(blockers)),
+            'inputs': inputs, 'missing_media': [row for row in inputs if row.get('status') == 'needs_user_media'],
+            'executables': executables, 'services': services, 'readiness_warnings': warnings,
+            'compatibility': compatibility,
+            'models_without_url': manual, 'unknown_inventory': unknown,
+            'download_bytes': total, 'download_gb': round(total / 1e9, 2),
+            'unknown_size_count': unknown_sizes, 'size_complete': not unknown_sizes and not unknown,
+            'needed': bool(packs or targets or settings),
+            'consent': 'Ask independent node/model choices; settings require separate explicit consent. No installs have run.'}
+
+
 def _settings_rows(req: dict, settings: dict | None, settings_error: str | None) -> list[dict]:
     rows = []
     for s in req.get('frontend_settings', []):
@@ -55,11 +157,12 @@ def setup_proposal(report: dict, size_of=remote_size) -> dict:
               'tested_version': p.get('tested_version')} for p in report['nodes']['missing_packs']]
     models, manual = [], []
     for m in report['models']:
-        if m['status'] != 'missing':
+        if m['status'] != 'missing' or m.get('optional'):
             continue
         row = {'name': m['name'], 'folder': m['folder'], 'url': m.get('url')}
         if m.get('url'):
-            row['size_gb'] = (lambda b: round(b / 1e9, 2) if b else None)(size_of(m['url']))
+            row['size_bytes'] = size_of(m['url'])
+            row['size_gb'] = round(row['size_bytes'] / 1e9, 2) if row['size_bytes'] else None
             models.append(row)
         else:
             manual.append(dict(row, note='No verified download link: the user must provide this file.'))
@@ -71,7 +174,8 @@ def setup_proposal(report: dict, size_of=remote_size) -> dict:
         'needed': needed,
         'consent': 'Ask ONCE with one clarify form listing all items below; never ask per item.' if needed else 'nothing to install',
         'node_packs': packs, 'models': models, 'models_without_url': manual, 'settings': settings,
-        'download_gb': round(sum(sizes), 2) if sizes else None,
+        'download_bytes': sum(m.get('size_bytes') or 0 for m in models),
+        'download_gb': round(sum(m.get('size_bytes') or 0 for m in models) / 1e9, 2) if models else 0,
         'download_gb_note': None if len(sizes) == len(models) else 'size unknown for some models',
         'restart_after_packs': bool(packs),
         'blockers': blockers,

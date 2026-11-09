@@ -26,6 +26,13 @@ answers, startup provisions working copies into **Workflows → Comfy Recipe** u
 new-file provisioning, not hidden graph editing. It never downloads weights, installs custom code, uploads personal
 media, queues a job, or restarts a backend. Existing/foreign installations require an explicit install action.
 
+Before starting its own ComfyUI, Comfy Recipe deploys a dependency-free frontend helper under
+`custom_nodes/hermes_comfy_recipe_startup/`. In a fresh browser workspace it seeds ComfyUI's native tab restore
+pointers with all six bundled workflows, **`RCP_qwen_image_2_1_t2i` first and selected**. Existing tab pointers,
+drafts and legacy sessions are left untouched; later launches retain the user's selected workflow and tab order.
+The helper does not edit workflow JSON, run a graph, or download models. An empty draft index created by ComfyUI
+itself is not treated as prior user work. This startup helper is only deployed to the managed installation.
+
 Agent tools:
 
 - `comfy_workflows action=library`: offline catalog, IDs and dependency metadata.

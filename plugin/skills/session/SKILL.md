@@ -59,6 +59,18 @@ can run at the same time, e.g. on another port/GPU). The kickoff tells you the p
   the Hermes desktop app (or the Hermes process when there is no desktop app) and runs `stop` when it is gone. The next
   session starts it again (phase `stopped`). Other ComfyUI installs are never touched.
 
+## Post-install setup and tutorial
+After a fresh managed installation opens in the pane, call `comfy_onboarding action=status` BEFORE the ordinary
+question. Ask ONE clarify form with independent choices for missing node packs now (recommended) vs on use, and
+missing models on use (recommended) vs now with verified missing-download GB. Skip categories already available;
+unknown sizes/inventory remain explicit. Settings require separate consent. Record submitted choices with
+`comfy_onboarding action=preferences nodes=now|on_use models=now|on_use`, perform only approved work visibly,
+recheck readiness, then call `comfy_onboarding action=tutorial` and load `comfy-recipe:first-image-tutorial`.
+Do not ask what the user wants to do until tutorial success, explicit skip, or the next distinct Recipe session.
+`/comfy tutorial` replays the first-image lesson at any time; “tutorial” and “skip tutorial” also work in Recipe chats.
+Only the first-image lesson exists. The reusable `comfy-recipe:qwen-image-2-1-prompting` skill writes prompts in
+Hermes, leaving the graph's extra model-based enhancer off. Returning/legacy installs are not forced into onboarding.
+
 ## Procedure: open a ComfyUI session
 In the desktop app the plugin does steps 1–2 itself at the kickoff (it checks ComfyUI, opens the pane and hands you the
 instance facts), so the opening turn is just step 3 + the card. Load this skill on the first real request. Without the
@@ -73,7 +85,7 @@ plugin's kickoff facts, do all steps:
 3. ONE `drive_preview {"action":"elements","max":5}` to confirm control; its result carries the page title
    `<workflow name> - ComfyUI` (leading `*` = unsaved edits). If refused ("only takes actions in the session the user
    is looking at"): ask the user to click into this chat, retry once.
-4. Report instance, GPU and the active workflow's name only — do not inspect the workflow yet. Then wait.
+4. Report instance, GPU and active workflow. For fresh managed installs follow onboarding next_step above; for returning sessions use the normal ready card and wait.
 
 ## Procedure: work in the window
 Follow `references/pane-recipe.md` step by step (open workflow → prompt → numbers/dropdowns → images → Run → result).

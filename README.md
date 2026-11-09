@@ -26,12 +26,20 @@ where the time goes.
 ## Shared workflows and native skills
 
 Six RCP workflow definitions ship with the plugin and are added to the managed instance's **Workflows → Comfy Recipe**
-folder after startup. User copies are never overwritten; dependencies are checked and installed on demand, with consent.
+folder after startup. User copies are never overwritten; dependencies can be installed after setup or on demand, with consent.
 Native Hermes skills stay in `plugin/skills/` and may reference zero, one or multiple shared workflow IDs. There is no
 separate recipe engine or registry. See [the workflow-library guide](docs/WORKFLOW_LIBRARY.md) for authoring and updates.
 
 Use `comfy_workflows action=library` (offline), `action=install` (copy only), or `action=check workflow=<stable ID>`
 (read-only requirements). Commands: `/comfy library`, `/comfy library install`, `/comfy check <stable ID>`.
+
+## Guided first image
+
+After a new managed installation, choose independently whether to install missing node packs now (recommended)
+and download missing models now (with verified GB) or on use. Then describe your first image in this chat:
+the bundled Hermes Qwen prompt-writing skill enhances it and the agent generates it visibly. Skip with
+“skip tutorial”, or replay with `/comfy tutorial`. Returning sessions open normally; the other five lessons are held.
+See [onboarding details](docs/ONBOARDING.md). Add redistributable references under [plugin/assets](plugin/assets/README.md).
 
 ## Visible vs headless
 

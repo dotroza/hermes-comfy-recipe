@@ -7,6 +7,17 @@ import plugin
 from plugin import core
 
 class StartupTests(unittest.TestCase):
+    def test_managed_start_provisions_tabs_before_server_starts(self):
+        events = []
+        with patch.object(core, '_managed_dir', return_value=Path('managed')), \
+             patch.object(core.installer, 'manifest', return_value={'port':8190}), \
+             patch('plugin.library.provision_startup', side_effect=lambda root: events.append(('tabs', root))), \
+             patch.object(core.installer, 'start', side_effect=lambda *args: events.append(('server', args[0])) or {'running':True}), \
+             patch.object(core, 'bind_to_hermes', return_value={}), \
+             patch.object(core, 'ensure_managed_library', return_value={}):
+            core.setup_start()
+        self.assertEqual(events, [('tabs', Path('managed') / 'ComfyUI'), ('server', Path('managed'))])
+
     def test_managed_start_attaches_library_without_losing_health(self):
         with patch.object(core,'_managed_dir',return_value=Path('managed')), patch.object(core.installer,'manifest',return_value={'port':8190}), \
              patch.object(core.installer,'start',return_value={'running':True,'url':'http://test'}), \
@@ -21,6 +32,9 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(result['status'],'skipped'); publish.assert_not_called()
 
     def setUp(self):
+        provision = patch('plugin.library.provision_startup')
+        provision.start()
+        self.addCleanup(provision.stop)
         core._LIBRARY_SYNC.clear()
 
     def tearDown(self):
