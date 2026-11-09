@@ -73,6 +73,43 @@ class LibraryProposalTests(unittest.TestCase):
         self.assertTrue(p['readiness_warnings'])
         self.assertEqual(p['compatibility'][0]['workflow_id'],'test')
 
+    def test_verified_sizes_skip_network_and_unknown_sizes_still_use_lookup(self):
+        from unittest.mock import Mock
+        rows = [report(name='known'), report(name='unknown', url='https://example.test/unknown')]
+        rows[0]['models'][0]['size_bytes'] = 1234567890
+        for builder in ('library', 'single'):
+            lookup = Mock(return_value=900)
+            with self.subTest(builder=builder):
+                result = (dependencies.library_proposal(rows, size_of=lookup) if builder == 'library'
+                          else dependencies.setup_proposal(dict(rows[0], models=[r['models'][0] for r in rows]), size_of=lookup))
+                lookup.assert_called_once_with('https://example.test/unknown')
+                self.assertEqual(result['download_bytes'], 1234568790)
+                self.assertEqual(result['models'][0]['size_bytes'], 1234567890)
+
+    def test_later_shared_requirement_can_supply_verified_size(self):
+        from unittest.mock import Mock
+        first, second = report(), report()
+        second['models'][0]['size_bytes'] = 1234
+        lookup = Mock(return_value=None)
+        result = dependencies.library_proposal([first, second], size_of=lookup)
+        lookup.assert_not_called()
+        self.assertEqual(result['download_bytes'], 1234)
+        self.assertEqual(len(result['models']), 1)
+        self.assertNotIn('size_bytes', first['models'][0], 'Do not mutate source reports')
+
+    def test_invalid_catalog_sizes_fall_back_and_lookup_failure_stays_unknown(self):
+        from unittest.mock import Mock
+        for value in (None, True, False, 0, -1, '123', 1.5):
+            row = report()
+            row['models'][0]['size_bytes'] = value
+            for builder in (dependencies.library_proposal, dependencies.setup_proposal):
+                lookup = Mock(side_effect=OSError('offline'))
+                with self.subTest(value=value, builder=builder.__name__):
+                    result = builder([row] if builder is dependencies.library_proposal else row, size_of=lookup)
+                    lookup.assert_called_once()
+                    self.assertIsNone(result['models'][0]['size_bytes'])
+                    self.assertEqual(result['download_bytes'], 0)
+
     def test_shared_model_bytes_are_counted_once(self):
         calls=[]
         p=dependencies.library_proposal([report(),report()],size_of=lambda url: calls.append(url) or 1234567890)

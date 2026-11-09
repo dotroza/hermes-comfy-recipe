@@ -10,14 +10,22 @@ CARD_RULE = ('When a result carries progress_card, put that exact MEDIA:<path> l
              'reply: the desktop app turns it into a live progress card (and a status-bar chip); never repeat it per poll. ')
 SETUP = (
     'POST-INSTALL SETUP (before the ordinary question). Call comfy_onboarding action=status. '
-    'Use ONE clarify form with independent questions. Nodes: install missing node packs now (recommended) vs on use. '
+    'Keep the setup introduction to one short sentence, then use ONE clarify form with independent questions. '
+    'Do not print an inventory, per-workflow caveat list, or an untested-execution disclaimer. Put only actionable '
+    'blockers and consent disclosures briefly in the relevant question. '
+    'Before the form, visibly select Comfy Recipe/RCP_qwen_image_2_1_t2i.json (including when localhost restored '
+    'an old installation\'s tab). Keep text-to-image selected; if node installation requires another graph, return to the text-to-image tab '
+    'immediately afterwards, preserving all other tabs and drafts. '
+    'Nodes: install missing node packs now (recommended) vs on use. '
     'Models: (1) "Download on use (recommended): each tutorial step downloads its own models when you reach it; other '
-    'workflows download theirs when you use them (I ask first)" vs (2) "Download everything now (<verified total GB>): '
-    'tutorial step 1 first, then step 2, then the rest - the tutorial starts as soon as step 1 is ready". '
+    'workflows download theirs when you use them (I ask first)" vs (2) "Download everything now (<verified total GB>)". '
+    'End the bulk-download choice at the closing size parenthesis; do not append download-order or tutorial commentary. '
+    'Internally retain download priority: tutorial step 1, then step 2, then the rest. '
     'Deduplicate shared files. If size_complete=false, say at least the known GB plus the unknown count; inventory '
     'unknown is not missing. Skip categories already available (record on_use for a skipped empty category). '
     'Explain third-party Python and the managed restart required for node packs. '
-    'List missing media, executable requirements, external-service checks and readiness warnings with their workflow names before consent: node/model installs do not supply author-specific inputs. '
+    'Disclose actual missing media, executable requirements and external-service blockers with workflow names briefly '
+    'in the relevant consent question, not as a separate preamble: node/model installs do not supply author-specific inputs. '
     'List blockers and obtain SEPARATE settings consent in the same form when needed. '
     'After submitted answers call comfy_onboarding action=preferences nodes=now|on_use models=now|on_use. '
     + CARD_RULE +
@@ -34,10 +42,13 @@ LESSON = (
     'then open Comfy Recipe/RCP_qwen_image_2_1_t2i.json visibly in the pane so the user sees the text-to-image workflow. '
     + CARD_RULE +
     'Prompt writing is by Hermes; leave refine_prompt off. '
-    'If awaiting_description, ask the user to describe their first image in THIS chat, unless their current message '
-    'already describes it; they may type while files download. Before a visible Run, if downloads.group tutorial-1 is '
-    'not done, call comfy_downloads action=wait group=tutorial-1 wait_s=300 (one short line per call), then refresh '
-    'the Missing Models panel. Then call comfy_onboarding action=tutorial begin_run=true. '
+    'Finish this step\'s model readiness before asking for the image description: if tutorial-1 is downloading, '
+    'call comfy_downloads action=wait group=tutorial-1 wait_s=300 until done (one short line per call; no page polling). '
+    'On completion immediately refresh the Missing Models panel and verify with desktop_preview read that the '
+    'selected t2i workflow no longer reports missing models; preserve prompts/tabs, do not reload the page. '
+    'If awaiting_description, then ask the user to describe their first image in THIS chat, unless their current '
+    'message already describes it. Before a visible Run recheck readiness if files or backend changed, then '
+    'call comfy_onboarding action=tutorial begin_run=true. '
     'Include prompt=<the exact enhanced text entered in the window> and workflow_path=<the selected saved path, including any version suffix> in begin_run; only the prompt hash is stored. '
     'After Run use comfy_result prompt_id=latest, verify the corresponding image visually, then '
     'comfy_onboarding action=complete prompt_id=<the explicit corresponding prompt id>. '
@@ -66,7 +77,9 @@ NEXT_AFTER_1 = (
     'with the single choice "Tutorial (step 2/6): Modify an image" (its Other row is the free-text box for a new '
     'description). Step 2 chosen -> comfy_onboarding action=tutorial step=2. A typed description -> write the prompt, '
     'type it in the text-to-image tab and Run visibly again (no begin_run needed), show the image, then offer the '
-    'same choice again. Do not ask the ordinary question yet.'
+    'same choice again. After showing the image and asking What next, stop: do not poll the page, call elements, '
+    'or strobe while waiting for the user. Read-only title/status checks use desktop_preview read, not elements. '
+    'Do not ask the ordinary question yet.'
 )
 NEXT_AFTER_2 = ('Show the verified edited image (MEDIA:<output path>) with a one-line summary of the change, say '
                 'the other four tutorial steps are coming later, then ask: What would you like to do?')
@@ -126,7 +139,9 @@ def reports(workflow_id=None):
         error = None
     except Exception as exc:
         settings, error = None, str(exc)
-    return [dependencies.check(inst, entry, library.load_asset(entry), info, settings, error) for entry in entries]
+    inventory = {}  # One snapshot per report, never a process-wide readiness cache.
+    return [dependencies.check(inst, entry, library.load_asset(entry), info, settings, error,
+                               model_inventory=inventory) for entry in entries]
 
 
 def _proposal(workflow_id=None):

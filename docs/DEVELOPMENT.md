@@ -54,6 +54,14 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
 - Native `skills/*/SKILL.md` files register through `ctx.register_skill`. Optional
   `metadata.comfy_recipe.workflow_ids` references the shared catalog; no separate skill/recipe index exists.
 - `dependencies.py` checks evidence without installing anything. Refresh schema after consented Manager installation.
+- Batch readiness checks share `model_inventory` only for the lifetime of one report. Keys include backend URL,
+  root and model folder; failures remain unknown and are retried on the next report. Do not introduce a long-lived
+  inventory cache without download/restart invalidation. Both onboarding and bundled download proposals use this path.
+- Proposals retain positive integer catalog `size_bytes` before doing HEAD lookups; unknown sizes still use the
+  existing bounded metadata cache. Shared targets can inherit a known size from a later requirement with the same URL.
+  The offline six-workflow fixture reduces folder requests from 25 to 6 and size lookups from 21 to 16; these are
+  request budgets, not measured end-to-end startup timings. Regression tests live in `tests/test_setup_optimizations.py`
+  and `tests/test_onboarding_dependencies.py`.
 - Standard-library tests: `python -m unittest discover -s tests -v`; authoring details in `docs/WORKFLOW_LIBRARY.md`.
 
 ## Onboarding

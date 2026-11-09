@@ -29,10 +29,17 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
    tab or overwrite a changed working copy. If the saved graph differs from the bundle, offer a versioned copy.
 3. If `downloads.progress_card` is present, put that `MEDIA:<path>` line once, alone on its own line: it becomes a
    live progress card in the chat and a chip in the status bar. Do not repeat it.
-4. If the user has not supplied an image idea, ask:
+4. Finish model readiness before asking for the image description: if this step's downloads are pending/running,
+   call `comfy_downloads action=wait group=tutorial-1 wait_s=300` until done, with one short line per call.
+   Do not poll the page while waiting. On completion immediately click the Missing Models header Refresh
+   (`[data-testid='missing-model-header-refresh']`) in Issues and verify with `desktop_preview read` that this
+   workflow no longer reports missing models. If the control is absent and warnings are already clear, no click is
+   needed. Preserve dirty prompts/tabs; do not reload or close/reopen the page. Failed/stalled downloads are blockers,
+   not readiness. If consent is needed, obtain it before waiting as described in step 6.
+   Then, if the user has not supplied an image idea, ask:
    “Let’s create your first image. Describe what you’d like to see here in the chat—a subject, a place, a style,
    or just an idea. I’ll turn it into a prompt and make it in the ComfyUI window. You can say ‘skip tutorial’ at
-   any time.” They can type while files download. Do not substitute “What should I do first?”
+   any time.” Do not substitute “What should I do first?” Other workflows may continue downloading in the background.
 5. When a description arrives, load `comfy-recipe:qwen-image-2-1-prompting` and write the prompt; keep the
    workflow's `refine_prompt` enhancement OFF.
 6. Readiness before Run:
@@ -65,6 +72,9 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
     - Step 2 → `comfy_onboarding action=tutorial step=2`, then follow `comfy-recipe:modify-image-tutorial`.
     - A typed description → write the prompt, type it in the same text-to-image tab, Run visibly (no begin_run),
       show the image, then offer the same choice again.
+    - Once the image and next-step choice are shown, stop: do not poll the page, run `elements`, or call `strobe`
+      while waiting for the user. For read-only title/status checks use `desktop_preview read`; inventory only
+      when a real action needs refs and reuse the refs/deltas already returned.
 
 ## Skip, replay and failures
 - “skip tutorial”: call `comfy_onboarding action=skip`; do not generate. Say they can come back any time by asking

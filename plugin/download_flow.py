@@ -76,7 +76,9 @@ def bundled_proposal(inst: dict, workflow_ids: list[str] | None) -> dict:
     if unknown:
         raise ValueError('Unknown bundled workflow id(s): ' + ', '.join(sorted(unknown)))
     info = json.loads(core._object_info_path(inst).read_text(encoding='utf-8'))
-    reports = [dependencies.check(inst, e, library.load_asset(e), info, {}, None) for e in entries]
+    inventory = {}
+    reports = [dependencies.check(inst, e, library.load_asset(e), info, {}, None,
+                                  model_inventory=inventory) for e in entries]
     return dependencies.library_proposal(reports, size_of=dependencies.cached_size_lookup(core.DATA))
 
 
@@ -139,10 +141,22 @@ def handle(params: dict) -> dict:
     if action == 'start':
         return start(params)
     inst, d, _ = target(params.get('instance'))
-    if action == 'status':
-        return downloads.status(d)
-    if action == 'wait':
-        return downloads.wait(d, params.get('group'), int(params.get('wait_s') or 300))
+    if action in ('status', 'wait'):
+        result = (downloads.wait(d, params.get('group'), int(params.get('wait_s') or 300))
+                  if action == 'wait' else downloads.status(d))
+        group_id = params.get('group')
+        group = next((g for g in result.get('groups', []) if g['id'] == group_id), None) if group_id else None
+        ready = group is not None and group.get('state') == 'done' if group_id else result.get('state') == 'done'
+        if ready:
+            result = dict(result, instance=inst['name'], url=inst['url'], instruction=(
+                'Downloads for this scope are complete. Before asking for a prompt, refresh the visible model lists '
+                'NOW, not after the user replies: confirm the pane is on this result\'s URL, then click the '
+                'Missing Models header Refresh ([data-testid="missing-model-header-refresh"]) in Issues with '
+                'drive_preview. Use desktop_preview read to verify the selected workflow\'s missing-model warnings '
+                'have cleared. If the refresh control is absent and no warnings remain, no click is needed. '
+                'Preserve dirty prompts and tabs; do not close/reopen or reload the page. Other workflows may still '
+                'be downloading. This is download completion, not proof of node/settings or execution readiness.'))
+        return result
     if action == 'cancel':
         return downloads.cancel(d)
     if action == 'watch_nodes':

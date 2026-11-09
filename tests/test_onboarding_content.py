@@ -41,6 +41,23 @@ class OnboardingContentTests(unittest.TestCase):
             self.assertTrue((root/folder/'.gitkeep').is_file())
         self.assertEqual([p.name for p in root.rglob('*') if p.is_file() and p.suffix.lower() in ['.png','.jpg','.mp4']],[])
 
+    def test_fresh_setup_copy_is_brief_and_keeps_t2i_visible(self):
+        import plugin
+        from plugin import onboarding_flow as flow
+        self.assertIn('open Comfy Recipe/RCP_qwen_image_2_1_t2i.json visibly', plugin.FIRST_RUN)
+        self.assertIn('Keep the setup introduction to one short sentence', flow.SETUP)
+        self.assertIn('End the bulk-download choice at the closing size parenthesis', flow.SETUP)
+        self.assertNotIn('tutorial starts as soon as step 1 is ready', flow.SETUP)
+        self.assertIn('return to the text-to-image tab', flow.SETUP)
+
+    def test_tutorial_refreshes_before_prompt_handoff_and_waits_quietly_after_completion(self):
+        from plugin import onboarding_flow as flow
+        self.assertIn('before asking for the image description', flow.LESSON)
+        self.assertIn('do not poll the page', flow.NEXT_AFTER_1)
+        tutorial=(ROOT/'skills/first-image-tutorial/SKILL.md').read_text()
+        self.assertIn('before asking for the image description', tutorial)
+        self.assertIn('do not poll the page', tutorial)
+
     def test_first_run_instructions_do_not_force_ordinary_question(self):
         import plugin
         self.assertIn('comfy_onboarding',plugin.FIRST_RUN)

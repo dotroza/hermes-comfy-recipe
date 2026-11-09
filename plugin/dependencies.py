@@ -60,6 +60,10 @@ def cached_size_lookup(data_dir, lookup=remote_size, clock=None):
     return size_of
 
 
+def _positive_size(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
 def library_proposal(reports: list[dict], size_of=remote_size) -> dict:
     """Missing default requirements across workflows; no installation or generation."""
     from concurrent.futures import ThreadPoolExecutor
@@ -107,19 +111,21 @@ def library_proposal(reports: list[dict], size_of=remote_size) -> dict:
                 blockers.append('Conflicting model URLs: ' + folder + '/' + name)
                 targets[key]['url'] = None
             else:
-                targets.setdefault(key, row)
-    urls = sorted({row['url'] for row in targets.values() if row.get('url')})
+                existing = targets.setdefault(key, row)
+                if _positive_size(existing.get('size_bytes')) is None and _positive_size(row.get('size_bytes')) is not None:
+                    existing['size_bytes'] = row['size_bytes']
+    urls = sorted({row['url'] for row in targets.values()
+                   if row.get('url') and _positive_size(row.get('size_bytes')) is None})
     def lookup(url):
         try:
-            value = size_of(url)
-            return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+            return _positive_size(size_of(url))
         except Exception:
             return None
     with ThreadPoolExecutor(max_workers=4) as pool:
         sizes = dict(zip(urls, pool.map(lookup, urls)))
     models, manual = [], []
     for row in targets.values():
-        size = sizes.get(row.get('url'))
+        size = _positive_size(row.get('size_bytes')) or sizes.get(row.get('url'))
         row = dict(row, size_bytes=size, size_gb=round(size / 1e9, 2) if size else None)
         (models if row.get('url') else manual).append(row)
     total = sum(row['size_bytes'] or 0 for row in models)
@@ -161,7 +167,12 @@ def setup_proposal(report: dict, size_of=remote_size) -> dict:
             continue
         row = {'name': m['name'], 'folder': m['folder'], 'url': m.get('url')}
         if m.get('url'):
-            row['size_bytes'] = size_of(m['url'])
+            row['size_bytes'] = _positive_size(m.get('size_bytes'))
+            if row['size_bytes'] is None:
+                try:
+                    row['size_bytes'] = _positive_size(size_of(m['url']))
+                except Exception:
+                    row['size_bytes'] = None
             row['size_gb'] = round(row['size_bytes'] / 1e9, 2) if row['size_bytes'] else None
             models.append(row)
         else:
@@ -190,7 +201,13 @@ def setup_proposal(report: dict, size_of=remote_size) -> dict:
 
 
 def check(inst: dict, entry: dict, workflow: dict, object_info: dict,
-          settings: dict | None = None, settings_error: str | None = None, size_of=None) -> dict:
+          settings: dict | None = None, settings_error: str | None = None, size_of=None,
+          model_inventory: dict | None = None) -> dict:
+    """Check one workflow; callers may share model inventory within one report only.
+
+    Inventory keys include the backend URL/root so a batch cannot leak evidence between installations.
+    Never retain this snapshot across reports: downloads/restarts must be visible on the next check.
+    """
     req = entry.get('requirements') or {}
     nodes, definitions = _nodes(workflow)
     types = {n['type'] for n in nodes} - definitions - UI_ONLY
@@ -204,7 +221,8 @@ def check(inst: dict, entry: dict, workflow: dict, object_info: dict,
         if absent:
             packs.append({**pack, 'missing_node_types': absent})
     unresolved = sorted(missing - core - set(providers))
-    models, inventory = [], {}
+    models = []
+    inventory = {} if model_inventory is None else model_inventory
     for model in req.get('models', []):
         folder, name = model.get('folder'), model.get('name')
         if (not isinstance(folder, str) or not folder or '/' in folder or '\\' in folder or folder in ('.', '..')
@@ -212,15 +230,16 @@ def check(inst: dict, entry: dict, workflow: dict, object_info: dict,
                 or PurePosixPath(name.replace('\\', '/')).is_absolute()
                 or '..' in PurePosixPath(name.replace('\\', '/')).parts):
             raise ValueError('Unsafe model folder or filename')
-        if folder not in inventory:
+        key = (inst['url'].rstrip('/'), str(inst.get('root') or ''), folder)
+        if key not in inventory:
             try:
                 values = cc.get_json(inst['url'], '/models/' + quote(folder, safe=''))
                 if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
                     raise ValueError('Invalid installed-model response')
-                inventory[folder] = (set(v.replace('\\', '/') for v in values), None)
+                inventory[key] = (set(v.replace('\\', '/') for v in values), None)
             except (cc.ComfyError, ValueError, OSError) as exc:
-                inventory[folder] = (None, str(exc))
-        have, error = inventory[folder]
+                inventory[key] = (None, str(exc))
+        have, error = inventory[key]
         row = dict(model, status='unknown' if have is None else 'available' if name.replace('\\', '/') in have else 'missing')
         if error:
             row['error'] = error

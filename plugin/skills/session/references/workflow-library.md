@@ -32,8 +32,15 @@ Before the ordinary question, call `comfy_onboarding action=status`. Its proposa
 deduplicates files/packs and shows verified missing-download GB. Use one form with independent choices for nodes
 now (recommended) vs on use, and models on use (recommended) vs now. Unknown sizes/manual files must remain explicit;
 settings require separate consent in the same form. Record only submitted answers. Base installation is not consent.
+Select `Comfy Recipe/RCP_qwen_image_2_1_t2i.json` visibly before the form, even if browser storage from a previous
+installation restored Wan/SCAIL. Keep other tabs/drafts. Use one short setup introduction, no inventory or generic
+untested-execution disclaimer; put actionable blockers and security disclosures briefly in the relevant question.
+The bulk-download option ends at `Download everything now (<verified GB>)` with no commentary after the size.
 Open each affected graph visibly to access its Issues panel; one graph does not list every pack in the library.
-Perform only approved categories. Recheck via `comfy_onboarding action=status refresh=true`, then start the tutorial.
+Perform only approved categories. Return to text-to-image immediately after node installation, recheck via
+`comfy_onboarding action=status refresh=true`, then start the tutorial. When its models finish downloading, refresh
+the Missing Models list immediately and verify that this workflow's warnings clear before asking for a prompt;
+do not defer refresh until the user's next message. Preserve dirty tabs; no full page reload is needed.
 If installation fails, offer retry/skip without claiming readiness or completion. Existing-user ordinary workflow use
 still follows the per-workflow proposal below. Shared models are never copied and new downloads stay in our install.
 

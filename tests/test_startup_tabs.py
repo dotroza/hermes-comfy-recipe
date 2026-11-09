@@ -19,6 +19,17 @@ class StartupTabsTests(unittest.TestCase):
           assert.equal(JSON.parse(localStorage.getItem('Comfy.Workflow.LastActivePath:personal')).path, tabs.paths[0]);
         """)
 
+    def test_workflow_preferences_do_not_count_as_saved_work(self):
+        self.run_browser_check("""
+          localStorage.setItem('Comfy.Workflow.WorkflowTabsPosition', 'Top');
+          localStorage.setItem('Comfy.Workflow.AutoSave', 'true');
+          extension.init();
+          const tabs = JSON.parse(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
+          assert.ok(tabs, 'UI preferences must not prevent first-launch tabs');
+          assert.equal(tabs.paths[0], 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json');
+          assert.equal(localStorage.getItem('Comfy.Workflow.AutoSave'), 'true');
+        """)
+
     def test_empty_draft_index_is_still_a_fresh_browser(self):
         self.run_browser_check("""
           localStorage.setItem('Comfy.Workflow.DraftIndex.v2:personal', JSON.stringify({order: [], entries: {}}));

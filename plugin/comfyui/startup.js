@@ -20,7 +20,11 @@ app.registerExtension({
             if (index && Array.isArray(index.order) && index.order.length === 0 &&
                 index.entries && Object.keys(index.entries).length === 0) continue;
           }
-          if (legacy.has(key) || key?.startsWith('Comfy.Workflow.') ||
+          if (legacy.has(key) || [
+                'Comfy.Workflow.DraftIndex.v2:', 'Comfy.Workflow.Draft.v2:',
+                'Comfy.Workflow.ActivePath:', 'Comfy.Workflow.OpenPaths:',
+                'Comfy.Workflow.LastActivePath:', 'Comfy.Workflow.LastOpenPaths:'
+              ].some(prefix => key?.startsWith(prefix)) ||
               key?.startsWith('Comfy.PreviousWorkflow:') ||
               key?.startsWith('Comfy.OpenWorkflowsPaths:') || key?.startsWith('workflow:')) {
             return;

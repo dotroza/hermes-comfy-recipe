@@ -153,6 +153,24 @@ class DownloaderTests(unittest.TestCase):
         self.assertEqual([c.kwargs['group'] for c in enq.call_args_list], ['tutorial-1', 'other'])
         self.assertEqual([m['name'] for m in r['models_without_url']], ['nolink.safetensors'])
 
+    def test_finished_download_group_requires_immediate_visible_refresh(self):
+        inst = {'name': core.MANAGED_NAME, 'url': 'http://127.0.0.1:8190'}
+        for action in ('wait', 'status'):
+            for state in ('done', 'running', 'error', 'stalled'):
+                with self.subTest(action=action, state=state), \
+                     patch.object(download_flow, 'target', return_value=(inst, self.install, self.models)), \
+                     patch.object(downloads, action, return_value={
+                         'state': 'running', 'groups': [{'id': 'tutorial-1', 'state': state}],
+                         'group': {'id': 'tutorial-1', 'state': state}}):
+                    out = download_flow.handle({'action': action, 'group': 'tutorial-1'})
+                if state == 'done':
+                    self.assertIn('missing-model-header-refresh', out.get('instruction', ''))
+                    self.assertIn('before asking for a prompt', out['instruction'].lower())
+                    self.assertEqual(out['instance'], inst['name'])
+                    self.assertEqual(out['url'], inst['url'])
+                else:
+                    self.assertNotIn('instruction', out)
+
     def test_install_status_is_a_progress_card(self):
         from plugin import installer
         d = Path(self.tmp.name) / 'inst'

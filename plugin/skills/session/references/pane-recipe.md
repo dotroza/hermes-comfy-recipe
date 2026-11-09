@@ -11,6 +11,13 @@ Run every step with the exact tool calls below; read each result before the next
    0 elements → `terminal sleep 4`, retry. Refused → ask the user to click into this chat, retry once.
 
 ## 1. Open the right workflow
+- Edit the current workflow in place. Treat the user's selected graph as the workspace, including its unsaved edits.
+  A missing Load Image input means add the node and connect it to the next appropriate `image_N` socket in this graph.
+  Duplicate only for substantial restructuring (many coordinated changes including group/subgraph internals), or when
+  the user explicitly asks. Do not fork merely because an input is missing or the current tab is dirty.
+- Node/link manipulation must use supported visible controls. If the pane cannot perform the required gesture, stop
+  and explain that limitation; do not work around it by duplicating a saved workflow. A user-approved wiring-only
+  fallback must preserve live state and keep the same workflow identity (see `workflow-json-editing.md`).
 - The title `<name> - ComfyUI` names the active tab (`*` prefix = unsaved edits).
 - Another workflow: `drive_preview {"action":"click","ref":"<Workflows sidebar button ref>"}` →
   `drive_preview {"action":"click","selector":"[title='<folder name>']"}` (only if it sits in a folder) →

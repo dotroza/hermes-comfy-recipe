@@ -13,7 +13,9 @@
 - `elements` returns refs that survive re-renders. With `full=true` it still answers with a delta (`same: N`).
   The list is viewport-culled: off-screen canvas nodes are missing until `Fit View`.
 - Every `elements` call makes the app strobe a box over each reachable element (watch overlay); every action boxes its
-  target. This is visual feedback, not the agent searching randomly. Keep `elements` calls rare.
+  target. This is visual feedback, not the agent searching randomly. Keep `elements` calls rare. Never call `strobe`;
+  do not poll `elements` while waiting or after handing control back to the user. Use `desktop_preview read` for
+  read-only status, download/result tools for background progress, and reuse the refs/deltas already returned.
 - `type` replaces the whole field. `press` with key combos inserts literal characters into textareas.
 - Textarea values in `elements` show only ~60 characters; verify full text from the saved JSON or the run result.
 - Legacy sidebar tree items support title selectors. Frontend 1.57.6 folders instead support
@@ -42,6 +44,11 @@
 - Right panel `Issues` tab (nothing selected): Missing Node Packs (`Install All`, per-row `Install` /
   `View in Manager`), missing models and missing media for the open tab. `desktop_preview read` returns it as text -
   cheaper than an `elements` call.
+- Models added on disk do not automatically clear the visible warnings. As soon as the current workflow's model
+  downloads finish, click the Missing Models header Refresh (`[data-testid='missing-model-header-refresh']`), then
+  use `desktop_preview read` to verify the warnings cleared. Do this before asking for a prompt, not only before
+  Run. If warnings are already clear and the control is absent, no click is needed. Preserve dirty tabs/prompts;
+  refreshing this list does not need a full page reload.
 
 ## Node packs and restarts
 - `Install All` flips every row to `Installing...`: confirm completion from `<root>/custom_nodes/` and the tail of the

@@ -88,6 +88,14 @@ plugin's kickoff facts, do all steps:
 4. Report instance, GPU and active workflow. For fresh managed installs follow onboarding next_step above; for returning sessions use the normal ready card and wait.
 
 ## Procedure: work in the window
+Act as a graph-editing assistant: modify the user's current workflow in place by default.
+Adding/removing a node, reconnecting a link, or adding a reference image is a small in-place edit, not a new workflow.
+For example, if `RCP_qwen_image_2_1_i2i` has only one Load Image and the user supplies two images, add a Load Image
+node and connect its IMAGE output to the Image Edit subgraph's `image_2` input in that same graph.
+Duplicate only for substantial restructuring (many coordinated edits, including edits inside group/subgraph nodes),
+or when the user explicitly asks for a copy. Explain a substantial fork before creating it. Missing inputs, a dirty
+`*` tab, and tooling friction do not justify duplication. Preserve the current unsaved state; if tools cannot do the
+requested in-place change safely, explain the limitation instead of silently substituting a saved/bundled graph.
 Follow `references/pane-recipe.md` step by step (open workflow → prompt → numbers/dropdowns → images → Run → result).
 - The user may work in the window too (open workflows, select or edit nodes) to show what they want or ask about the
   graph: re-read the part of the window concerned before acting or answering — never assume its earlier state.
@@ -95,8 +103,11 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
   overlay). Read the `delta` each click/type returns instead of re-scanning.
 - Prompt, numbers, seeds and Load Image files are ALWAYS changed in the window, never through the JSON. A widget that
   vanished after a view change is hidden by the zoom: `Nodes` tab → `Locate node on canvas` (pane-recipe step 2).
-- Wiring changes (drag a link, add a node) cannot be done in the pane: edit the workflow JSON on disk
-  (`references/workflow-json-editing.md`, back up first), then close + reopen the pane.
+- Make node and link edits visibly in the current graph when supported by the available pane controls.
+  `drive_preview` currently lacks a canvas-drag action; do not claim a wire was dragged when it was not.
+  If a required edit is unsupported, stop and explain the limitation. A wiring-only JSON fallback needs the user's
+  approval, a backup and preservation of the live unsaved state (`references/workflow-json-editing.md`); it is not
+  permission to fork or replace the current graph.
 
 ## Procedure: use the shared workflow library
 - Native skills stay in the plugin; a skill may use zero, one, or several shared workflow IDs. There is no separate
@@ -140,8 +151,9 @@ See `references/performance-method.md`: per-stage breakdown from the ComfyUI log
 enhancers running to their token cap, reference-image count, LoRA re-patching, model swapping.
 
 ## Rules
-- Never overwrite the user's workflow file: write a sibling copy or a `.bak-<purpose>.json` backup first, then
-  report exactly which fields changed.
+- For an approved disk wiring edit, back up first, then modify the same workflow identity/path and report exactly
+  which fields changed. A backup is recovery data, not a duplicate working tab. Routine edits stay in the current graph;
+  separate working copies are reserved for substantial restructuring or an explicit user request.
 - Never start, restart or stop a ComfyUI yourself - except Comfy Recipe's own install, through `comfy_setup start/stop`.
 - Never save a tab (Ctrl+S) or close a tab with unsaved edits unless the user asks.
 - Verify results with real tool output (vision check, ffprobe) — never just "done".
