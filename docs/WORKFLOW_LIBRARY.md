@@ -10,14 +10,19 @@ There is no separate recipe registry, execution engine, or recipe tool.
 | --- | --- |
 | `qwen-image-2-1-t2i` | Qwen Image 2.1 text to image |
 | `qwen-image-2-1-i2i` | Qwen Image 2.1 image editing |
-| `minimax-h3-r2v` | Local MiniMax H3 reference to video |
-| `minimax-h3-r2v-f2lf` | Local MiniMax H3 reference and first/last-frame variant |
-| `wan21-scail-2-loop-cr-mt` | Wan/SCAIL looped motion transfer |
+| `minimax-h3-r2v-mix` | Local MiniMax H3 reference to video with optional first/last-frame guides |
+| `pixal3d-img-to-3d` | Pixal3D / TRELLIS.2 image to textured 3D mesh (GLB) |
 | `ace-step1-5-xl-base` | ACE Step audio generation |
 
-The MiniMax graphs in this release use local model loaders, not a paid API. Availability of nodes/models does not
-certify runtime compatibility or adequate hardware. The Wan graph needs four registered third-party packs (KJNodes,
-MieNodes, VideoHelperSuite, WAS Node Suite Revised): inspect its preflight report instead of assuming they are installed.
+The MiniMax graph in this release uses local model loaders, not a paid API (w6a8 diffusion model + Qwen3-VL 8B
+encoder through ComfyUI-ClipProj, Load Video from VideoHelperSuite). It replaces `minimax-h3-r2v` and
+`minimax-h3-r2v-f2lf` (retired in library 1.3.0): two toggles give pure r2v, first-frame only, last-frame only or both. Availability of nodes/models does not
+certify runtime compatibility or adequate hardware. The simplified Pixal3D graph needs two registered third-party packs:
+KJNodes for frontend Set/Get wiring and ComfyUI-Easy-Use for `easy cleanGpuUsed`. Background removal uses
+BiRefNet; SAM segmentation and Qwen image-to-text captioning have been removed. Inspect its preflight report
+instead of assuming its dependencies are installed. (The Wan/SCAIL loop graph was retired in library 1.2.0.)
+The canonical video filename is `RCP_video_minimax_h3_r2v.json`; the stable catalog ID remains
+`minimax-h3-r2v-mix` for installed-revision tracking.
 
 ## Handoff to ComfyUI
 
@@ -28,7 +33,7 @@ media, queues a job, or restarts a backend. Existing/foreign installations requi
 
 Before starting its own ComfyUI, Comfy Recipe deploys a dependency-free frontend helper under
 `custom_nodes/hermes_comfy_recipe_startup/`. In a fresh browser workspace it seeds ComfyUI's native tab restore
-pointers with all six bundled workflows, **`RCP_qwen_image_2_1_t2i` first and selected**. Existing tab pointers,
+pointers with all five bundled workflows, **`RCP_qwen_image_2_1_t2i` first and selected**. Existing tab pointers,
 drafts and legacy sessions are left untouched; later launches retain the user's selected workflow and tab order.
 The helper does not edit workflow JSON, run a graph, or download models. An empty draft index created by ComfyUI
 itself is not treated as prior user work. This startup helper is only deployed to the managed installation.
@@ -37,7 +42,7 @@ Agent tools:
 
 - `comfy_workflows action=library`: offline catalog, IDs and dependency metadata.
 - `comfy_workflows action=install`: provision missing working copies, never overwrite different user content.
-- `workflow_ids=[...]`: install a subset. Omit for all six; an empty list selects none.
+- `workflow_ids=[...]`: install a subset. Omit for all five; an empty list selects none.
 - `versioned=true`: explicitly request separate versioned siblings with distinct internal identities.
 - `comfy_workflows action=check workflow=<stable ID> refresh=true`: read-only requirements for the bundled revision.
 
@@ -74,7 +79,7 @@ Use the shared workflow's working copy. Set the target and reference images in t
 ```
 
 A second skill such as `person-replacement` can reference the same `qwen-image-2-1-i2i` ID. A multi-stage skill can list
-both `qwen-image-2-1-t2i` and `minimax-h3-r2v`. A workflow-free troubleshooting skill omits `metadata.comfy_recipe`
+both `qwen-image-2-1-t2i` and `minimax-h3-r2v-mix`. A workflow-free troubleshooting skill omits `metadata.comfy_recipe`
 completely or sets `workflow_ids: []`. No running ComfyUI is needed merely to load these instructions. Registration
 checks names, package-contained paths and references; unknown IDs and malformed metadata are errors, not silent skips.
 Only requested skills are loaded in full; discovery does not inject all skill bodies into each session.
@@ -89,7 +94,7 @@ Only requested skills are loaded in full; discovery does not inject all skill bo
 4. Distributed top-level IDs use UUID5 URL namespace with
    `https://github.com/dotroza/hermes-comfy-recipe/workflows/<stable-id>` to isolate source/bundled tabs and the two
    MiniMax variants. Versioned sibling publication uses its own ID derived from stable ID and version.
-5. Update the entry version and SHA-256. The catalog has `schema_version: 1`, `library_version: 1.0.1`, and explicit
+5. Update the entry version and SHA-256. The catalog has `schema_version: 1`, `library_version: 1.3.1`, and explicit
    per-workflow requirements. `docs/workflow-capture.json` records source/distributed hashes and allowed identity changes.
 6. Use verified metadata for exact node providers, selected weight filenames and source links. Keep uncertain pack
    providers/versions unknown; a source-declared version is not an execution-tested version. Observed ComfyUI/frontend

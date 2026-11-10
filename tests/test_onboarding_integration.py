@@ -91,6 +91,7 @@ class FlowTests(unittest.TestCase):
         def inventory(url,path): return {} if path=='/settings' else []
         with patch.object(core,'_inst',return_value=self.managed),patch.object(core,'_object_info_path',return_value=info), \
              patch.object(core.cc,'get_json',side_effect=inventory), \
+             patch('plugin.downloads.installed_packs',return_value=set()), \
              patch.object(flow.dependencies,'cached_size_lookup',return_value=lambda u:None):
             rows=flow.reports()
             expected=sum(len([x for x in row['inputs'] if x['status']=='needs_user_media']) for row in rows)
@@ -134,17 +135,36 @@ class FlowTests(unittest.TestCase):
     def test_all_preference_combinations_have_scoped_next_steps(self):
         from plugin import onboarding_flow as flow
         onboarding.status(self.root,self.m,'A')
-        queued=[]
-        with patch.object(flow,'_proposal',return_value={'models':[{'folder':'vae','name':'v.safetensors','url':'https://x/v'}]}), \
-             patch.object(flow.download_flow,'queue',side_effect=lambda d,r,m:queued.append(m) or {'state':'pending','progress_card':'MEDIA:x'}):
+        queued=[]; installs=[]; applied=[]
+        prop={'models':[{'folder':'vae','name':'v.safetensors','url':'https://x/v'}],
+              'node_packs':[{'id':'was-ns','name':'WAS Node Suite (Revised)'}],
+              'settings':[{'id':'Comfy.VueNodes.Enabled','value':True}]}
+        with patch.object(flow,'_proposal',return_value=prop), \
+             patch.object(flow.download_flow,'queue',side_effect=lambda d,r,m:queued.append(m) or {'state':'pending','progress_card':'MEDIA:x'}), \
+             patch.object(flow.download_flow,'install_nodes',side_effect=lambda i,d,p:installs.append(p) or {'state':'running','progress_card':'MEDIA:n'}), \
+             patch.object(flow.core,'apply_settings',side_effect=lambda u,rows:applied.append(rows) or {'applied':[r['id'] for r in rows]}):
             for n,m in [('now','now'),('now','on_use'),('on_use','now'),('on_use','on_use')]:
-                r=flow.handle({'action':'preferences','nodes':n,'models':m},'A')
-                self.assertEqual(r['approved_categories'],[key for key,value in [('nodes',n),('models',m)] if value=='now'])
-                self.assertIn('comfy_onboarding action=tutorial',r['instruction'])
-                if m=='now': self.assertEqual(r['downloads']['progress_card'],'MEDIA:x')
-                else: self.assertNotIn('downloads',r)
-                if n=='now': self.assertIn('watch_nodes',r['instruction'])
-        self.assertEqual(len(queued),2)
+                for st in ('apply','skip'):
+                    r=flow.handle({'action':'preferences','nodes':n,'models':m,'settings':st},'A')
+                    text=r['instruction']
+                    self.assertEqual(r['approved_categories'],[key for key,value in [('nodes',n),('models',m)] if value=='now'])
+                    self.assertIn('comfy_onboarding action=tutorial',text)
+                    self.assertNotIn('Install All',text)
+                    if m=='now': self.assertEqual(r['downloads']['progress_card'],'MEDIA:x')
+                    else: self.assertNotIn('downloads',r)
+                    if n=='now':
+                        order=[text.index(t) for t in ('Do NOT open the Nodes Manager','nodes_status wait_s=300',
+                               'comfy_setup action=restart','desktop_preview action=close','status refresh=true',
+                               'comfy_onboarding action=tutorial')]
+                        self.assertEqual(order,sorted(order))
+                    else:
+                        self.assertNotIn('comfy_setup action=restart',text)
+                    if st=='apply':
+                        self.assertIn('shows Nodes 2.0',text)
+                    else:
+                        self.assertNotIn('settings',r); self.assertNotIn('Nodes 2.0',text)
+        self.assertEqual(len(queued),4); self.assertEqual(len(installs),4); self.assertEqual(len(applied),4)
+        self.assertEqual(installs[0],prop['node_packs'])
 
     def test_proposal_combines_six_reports_and_no_download(self):
         from plugin import onboarding_flow as flow

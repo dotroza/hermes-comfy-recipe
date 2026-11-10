@@ -16,6 +16,7 @@ provides_tools:
   - comfy_templates
   - comfy_run
   - comfy_result
+  - comfy_media
 provides_hooks:
   - pre_llm_call
 config_schema:

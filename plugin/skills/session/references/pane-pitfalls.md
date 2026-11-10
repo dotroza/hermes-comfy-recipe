@@ -33,17 +33,55 @@
 - Properties-panel prompt textareas appear in `elements` only in some selection states: one call lists them, the next
   may not. Treat their absence as a view state, not a missing widget (Locate the node, pane-recipe step 2).
 
+- Nodes 2.0 sockets are DOM elements: `[data-node-id="<id>"] .lg-slot` (inputs in order, `.lg-slot--output` for
+  outputs); hovering one names it in the action text, `[class*='connected']` on it means wired. They never appear in
+  `elements`. Clicking output then input does not create a link; `drive_preview` has no drag.
+- The newest node is `[data-node-id]:last-child`; its id is not shown, read it from the saved file when needed.
+- `press` needs a ref or selector; to close a menu press `Escape` on `body` with `allow_shortcut=true`, or on the
+  open listbox's selector.
+- Free VRAM visibly: `Menu` -> hover `Edit` -> `Unload Models and Execution Cache` (or `Unload Models`). Verify with
+  `GET /system_stats`: `torch_vram_total` 0 = ComfyUI holds nothing; the rest belongs to other processes/display.
+  The jobs panel `More options` menu only has `Clear job history`.
+
+- `Menu -> File -> Save As` names the file relative to the CURRENT workflow's folder: typing
+  `Comfy Recipe/<name>` from a tab in `Comfy Recipe/` created `Comfy Recipe/Comfy Recipe/<name>.json`. Type only the
+  name. To fix a misplaced file: close its clean tab, move the file on disk, Workflows sidebar `Refresh`, reopen.
+- Off-screen widgets ("still off-screen after scrolling"): right panel `Nodes` tab -> type the node title in
+  `Search ...` -> the panel shows that node's widgets (switches, file buttons, textareas) directly; act on them there.
+- Number widgets with a value popup: click `[aria-label='<widget name>']` -> an input + `OK` appear -> `type
+  clear=true` -> `OK`. A scroll over a canvas number widget silently changes it (seen: Load Video
+  `select_every_nth` 1 -> 34): re-read numbers from `/queue` after Run when an error is unexpected.
+
+## Queue and stuck jobs
+- `comfy_setup restart` refuses while a job runs. `Cancel current run` in the window (toast "Execution has been
+  interrupted") only lands at the next model-call boundary - minutes when one step is huge. Wait on `GET /queue` in a
+  bounded loop. A job queued by an earlier page leaves Cancel disabled: with the user's OK `POST <url>/interrupt`.
+- `0/N [... Model Initializing ...]` with the GPU at ~99 % = step 1 is computing (tqdm writes to the log only when a
+  step ends), not a load hang. Give an ETA from measured s/step before stopping.
+- First sampling step suddenly 10x slower than the previous run of the same graph (655 s/step vs 33 s/step) after
+  several runs: cancel, `Menu -> Edit -> Unload Models`, Run again - it went back to 26-30 s/step. Model staging can
+  also take 5-8 min before step 1 on a cold run; that is not a stall.
+- `comfy_result` can time out (420 s) on long runs: read `GET /internal/logs/raw` for the `Prompt executed` line, then
+  call `comfy_result` again.
+- User asked to stop/restart and the queue still shows 1 running after ~5 min: `comfy_setup stop` -> `start` (~12 s)
+  -> `desktop_preview close` + `open` -> `elements max=5`; the unsaved `*` tab is restored (verified twice). Do not
+  re-run the same settings; propose the speed fix and ask.
+
 ## Settings, Nodes 2.0 and the Issues tab
-- Settings dialog (`Settings (Ctrl + ,)`): each setting is a switch/combobox with selector `#<setting id>` (dots
-  escaped, e.g. `#Comfy\.VueNodes\.Enabled` = "Modern Node Design (Nodes 2.0)") and its `value` in the delta; no search
-  needed, close with `Close dialog`. To only READ a setting use `GET <url>/settings` (an omitted key = frontend
-  default) - never toggle a setting just to inspect it.
+- Change settings with `comfy_workflows action=apply_settings workflow=<ID>` (or `settings=apply` in setup
+  preferences), never in the Settings dialog: the API write is verified, the dialog path is where models get lost.
+  The open window keeps the old value until `desktop_preview close` + `open`. To only READ a setting use
+  `GET <url>/settings` (an omitted key = frontend default).
 - Some widgets draw only in Nodes 2.0 (e.g. `ImageCompare`'s slider): a node that looks empty on the classic canvas is a
   setting problem, not a broken node. `Comfy.VueNodes.Enabled` is off on a fresh frontend. With it on, nodes are DOM
   cards and `elements` lists each node's widgets directly, so Locate-node detours are rarely needed.
 - Right panel `Issues` tab (nothing selected): Missing Node Packs (`Install All`, per-row `Install` /
-  `View in Manager`), missing models and missing media for the open tab. `desktop_preview read` returns it as text -
-  cheaper than an `elements` call.
+  `View in Manager`), missing models and missing media for the OPEN tab only. `desktop_preview read` returns it as
+  text - cheaper than an `elements` call. When the panel is not visible, the error overlay's `View details` opens it.
+  Pack rows may first show raw registry ids without buttons: the registry lookup fills them in asynchronously, read
+  again before deciding. Bundled workflows never need these buttons (`comfy_downloads action=install_nodes`).
+- `[data-testid='missing-model-header-refresh']` exists only while the Issues panel is open: click the node's or the
+  right panel's `Issues` first, then `Refresh`. Never click the panel's Download buttons (downloads go through tools).
 - Models added on disk do not automatically clear the visible warnings. As soon as the current workflow's model
   downloads finish, click the Missing Models header Refresh (`[data-testid='missing-model-header-refresh']`), then
   use `desktop_preview read` to verify the warnings cleared. Do this before asking for a prompt, not only before
@@ -51,8 +89,13 @@
   refreshing this list does not need a full page reload.
 
 ## Node packs and restarts
-- `Install All` flips every row to `Installing...`: confirm completion from `<root>/custom_nodes/` and the tail of the
-  ComfyUI log (`After restarting ComfyUI, please refresh the browser.`) instead of re-scanning the page.
+- Never install packs one by one in the Nodes Manager: its search only matches bare words (`Video`, not
+  `ComfyUI-VideoHelperSuite`), Install-button refs renumber after every install, and a queued install never runs
+  until the queue is started - packs silently stay uninstalled. `comfy_downloads action=install_nodes` avoids all of it.
+- Completion = `comfy_downloads action=nodes_status` `state=done` (per-pack `pack_states` come from Manager's
+  installed list). A Manager queue that went idle is not proof: check `pack_states`, then
+  `comfy_workflows action=check ... refresh=true` after the restart.
+- Restart = `comfy_setup action=restart`, never `Apply Changes`.
 - The first start after new packs installs their pip dependencies and ComfyUI-Manager re-launches ComfyUI once
   (`[ComfyUI-Manager] Restarting to reapply dependency installation.`). A start that reports "exited while starting"
   with that line is not a crash: poll `GET <url>/system_stats` (up within ~30-60 s), then search the log for

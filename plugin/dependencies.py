@@ -80,6 +80,7 @@ def library_proposal(reports: list[dict], size_of=remote_size) -> dict:
             compatibility.append(dict(report['compatibility'], workflow_id=workflow_id))
         nodes = report['nodes']
         blockers.extend(nodes.get('missing_core', []) + nodes.get('unresolved', []))
+        unknown.extend(dict(pack, workflow_id=workflow_id) for pack in nodes.get('unknown_packs', []))
         for pack in nodes.get('missing_packs', []):
             packs.setdefault(pack['id'], pack)
         for setting in report.get('settings', []):
@@ -190,11 +191,13 @@ def setup_proposal(report: dict, size_of=remote_size) -> dict:
         'download_gb_note': None if len(sizes) == len(models) else 'size unknown for some models',
         'restart_after_packs': bool(packs),
         'blockers': blockers,
+        'unknown_inventory': report['nodes'].get('unknown_packs', []),
         'window_steps': [step for step in (
-            'Issues tab (right panel) -> Missing Node Packs -> Install All' if packs else None,
-            'Each model -> <ComfyUI root>/models/<folder>/<name> from its url (Issues tab download button when shown)' if models else None,
-            'Settings (Ctrl + ,) -> click switch ' + ', '.join(s['window_selector'] for s in settings) + ' (verify value in the delta) -> Close dialog' if settings else None,
-            'Queue idle -> restart ComfyUI (managed: comfy_setup stop/start; never Manager Apply Changes) -> desktop_preview close + open' if packs else None,
+            'comfy_downloads action=install_nodes packs=[these ids] (plugin installs via ComfyUI-Manager; never search packs in the Nodes Manager) -> comfy_downloads action=nodes_status wait_s=300 until done' if packs else None,
+            'comfy_downloads action=start workflow_ids=[<ID>] (background download with a live card)' if models else None,
+            'comfy_workflows action=apply_settings workflow=<ID> (' + ', '.join(s['id'] for s in settings) + '; never toggle by hand)' if settings else None,
+            'Restart: managed = comfy_setup action=restart (never Manager Apply Changes); other launchers = ask the user' if packs else None,
+            'desktop_preview close + open (loads new nodes/settings)' if packs or settings else None,
             'comfy_workflows action=check workflow=<ID> refresh=true to verify' if needed else None,
         ) if step],
     }
@@ -202,11 +205,12 @@ def setup_proposal(report: dict, size_of=remote_size) -> dict:
 
 def check(inst: dict, entry: dict, workflow: dict, object_info: dict,
           settings: dict | None = None, settings_error: str | None = None, size_of=None,
-          model_inventory: dict | None = None) -> dict:
+          model_inventory: dict | None = None, installed_packs: set[str] | None = None) -> dict:
     """Check one workflow; callers may share model inventory within one report only.
 
     Inventory keys include the backend URL/root so a batch cannot leak evidence between installations.
     Never retain this snapshot across reports: downloads/restarts must be visible on the next check.
+    installed_packs is explicit Manager installed+enabled evidence; None means unknown (no implicit request).
     """
     req = entry.get('requirements') or {}
     nodes, definitions = _nodes(workflow)
@@ -215,11 +219,17 @@ def check(inst: dict, entry: dict, workflow: dict, object_info: dict,
     core = set(req.get('core_node_types', []))
     providers = {t: p for p in req.get('custom_node_packs', []) for t in p.get('node_types', [])}
     missing = types - set(object_info) - set(frontend)
-    packs = []
+    packs, unknown_packs = [], []
     for pack in req.get('custom_node_packs', []):
         absent = sorted(missing & set(pack.get('node_types', [])))
+        frontend_types = sorted(t for t in types & set(frontend)
+                                if frontend[t].get('pack_id') == pack['id'])
+        if frontend_types and installed_packs is not None and pack['id'].lower() not in installed_packs:
+            absent = sorted(set(absent) | set(frontend_types))
         if absent:
             packs.append({**pack, 'missing_node_types': absent})
+        elif frontend_types and installed_packs is None:
+            unknown_packs.append({**pack, 'status': 'unknown', 'node_types': frontend_types})
     unresolved = sorted(missing - core - set(providers))
     models = []
     inventory = {} if model_inventory is None else model_inventory
@@ -256,12 +266,12 @@ def check(inst: dict, entry: dict, workflow: dict, object_info: dict,
     report = {'models': models, 'inputs': inputs, 'settings': _settings_rows(req, settings, settings_error), 'services': services, 'executables': executables,
             'compatibility': dict(req.get('compatibility', {}), hardware_validation='not_checked'),
             'portability_warnings': req.get('portability_warnings', []),
-            'installation_plan': {'method': 'ComfyUI-Manager in the visible window', 'requires_consent': True,
+            'installation_plan': {'method': 'ComfyUI-Manager API via comfy_downloads action=install_nodes', 'requires_consent': True,
                                   'packs': packs, 'unresolved_node_types': unresolved, 'requires_restart_consent': True,
                                   'security_note': 'Custom nodes execute third-party Python. A venv is not a security sandbox.'},
             'workflow_id': entry['id'], 'definition': {'status': 'bundled', 'working_copy': 'not_checked'},
             'nodes': {'available_types': sorted(types & set(object_info)), 'missing_core': sorted(missing & core),
-                      'missing_packs': packs, 'unresolved': unresolved,
+                      'missing_packs': packs, 'unknown_packs': unknown_packs, 'unresolved': unresolved,
                       'frontend_checks': [dict(frontend[t], status='requires_frontend_check') for t in sorted(types & set(frontend))],
                       'import_failures': 'not_checked'},
             'execution_ready': 'not_tested'}

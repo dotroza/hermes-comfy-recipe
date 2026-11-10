@@ -72,8 +72,9 @@ class DependencyTests(unittest.TestCase):
         self.assertEqual([m['name'] for m in p['models_without_url']],['nolink.safetensors'])
         self.assertEqual([x['id'] for x in p['settings']],['Comfy.VueNodes.Enabled'])
         self.assertTrue(p['restart_after_packs'])
-        self.assertIn('Install All',p['window_steps'][0])
-        self.assertTrue(any(r'#Comfy\.VueNodes\.Enabled' in x for x in p['window_steps']))
+        self.assertIn('install_nodes',p['window_steps'][0])
+        self.assertNotIn('Install All',' '.join(p['window_steps']))
+        self.assertTrue(any('apply_settings' in x and 'Comfy.VueNodes.Enabled' in x for x in p['window_steps']))
 
     def test_settings_ok_unknown_and_nothing_to_do(self):
         e={'id':'test','requirements':{'frontend_settings':[{'id':'Comfy.VueNodes.Enabled','value':True}]}}
@@ -84,16 +85,21 @@ class DependencyTests(unittest.TestCase):
         unk=dependencies.check({'url':'http://unused'},e,{'nodes':[]},{},None,'offline')
         self.assertEqual(unk['settings'][0]['status'],'unknown')
 
-    def test_bundled_catalog_declares_wan_packs_and_qwen_setting(self):
+    def test_bundled_catalog_declares_pixal3d_packs_and_qwen_setting(self):
         from plugin import library
         c={x['id']:x for x in library.load_catalog()['workflows']}
-        wan=c['wan21-scail-2-loop-cr-mt']['requirements']
-        self.assertEqual(wan['unresolved_node_types'],[])
-        self.assertEqual(sorted(p['id'] for p in wan['custom_node_packs']),
-                         ['comfyui-kjnodes','comfyui-videohelpersuite','comfyui_mienodes','was-ns'])
-        wf=library.load_asset(c['wan21-scail-2-loop-cr-mt'])
-        r=dependencies.check({'url':'http://unused'},c['wan21-scail-2-loop-cr-mt'],{'nodes':wf['nodes'],'definitions':wf.get('definitions')},{})
+        self.assertNotIn('wan21-scail-2-loop-cr-mt',c)
+        px=c['pixal3d-img-to-3d']['requirements']
+        self.assertEqual(px['unresolved_node_types'],[])
+        self.assertEqual(sorted(p['id'] for p in px['custom_node_packs']),
+                         ['comfyui-easy-use','comfyui-kjnodes'])
+        wf=library.load_asset(c['pixal3d-img-to-3d'])
+        with patch.object(dependencies.cc,'get_json',return_value=[]):
+            r=dependencies.check({'url':'http://unused'},c['pixal3d-img-to-3d'],{'nodes':wf['nodes'],'definitions':wf.get('definitions')},{}, installed_packs=set())
         self.assertEqual(r['nodes']['unresolved'],[])
-        self.assertEqual(len(r['setup_proposal']['node_packs']),4)
+        self.assertEqual(sorted(p['id'] for p in r['setup_proposal']['node_packs']),['comfyui-easy-use','comfyui-kjnodes'])
+        # every model the asset embeds for the frontend matches a catalog model (no stale qwen3.5_4b entry)
+        embedded={m['name'] for n in wf['nodes'] for m in n.get('properties',{}).get('models',[])}
+        self.assertEqual(embedded,{m['name'] for m in px['models']})
         qi=c['qwen-image-2-1-i2i']['requirements']['frontend_settings']
         self.assertEqual([(s['id'],s['value']) for s in qi],[('Comfy.VueNodes.Enabled',True)])

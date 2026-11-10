@@ -4,7 +4,7 @@ import json
 import re
 import uuid
 from pathlib import Path
-from . import core, dependencies, download_flow, installer, library, onboarding
+from . import core, dependencies, download_flow, downloads, installer, library, onboarding
 
 CARD_RULE = ('When a result carries progress_card, put that exact MEDIA:<path> line ONCE, alone on its own line, in your '
              'reply: the desktop app turns it into a live progress card (and a status-bar chip); never repeat it per poll. ')
@@ -14,8 +14,7 @@ SETUP = (
     'Do not print an inventory, per-workflow caveat list, or an untested-execution disclaimer. Put only actionable '
     'blockers and consent disclosures briefly in the relevant question. '
     'Before the form, visibly select Comfy Recipe/RCP_qwen_image_2_1_t2i.json (including when localhost restored '
-    'an old installation\'s tab). Keep text-to-image selected; if node installation requires another graph, return to the text-to-image tab '
-    'immediately afterwards, preserving all other tabs and drafts. '
+    'an old installation\'s tab) and keep it selected; whenever the pane is reopened during setup, return to the text-to-image tab. '
     'Nodes: install missing node packs now (recommended) vs on use. '
     'Models: (1) "Download on use (recommended): each tutorial step downloads its own models when you reach it; other '
     'workflows download theirs when you use them (I ask first)" vs (2) "Download everything now (<verified total GB>)". '
@@ -26,13 +25,14 @@ SETUP = (
     'Explain third-party Python and the managed restart required for node packs. '
     'Disclose actual missing media, executable requirements and external-service blockers with workflow names briefly '
     'in the relevant consent question, not as a separate preamble: node/model installs do not supply author-specific inputs. '
-    'List blockers and obtain SEPARATE settings consent in the same form when needed. '
-    'After submitted answers call comfy_onboarding action=preferences nodes=now|on_use models=now|on_use. '
+    'When proposal.settings is not empty, add a SEPARATE settings question: "Turn on <label> (recommended)" vs "Keep the '
+    'classic look" (e.g. Nodes 2.0 = modern node design, needed for the image-compare slider). '
+    'After submitted answers make ONE call: comfy_onboarding action=preferences nodes=now|on_use models=now|on_use '
+    'settings=apply|skip. The plugin then does all approved work itself (node packs through ComfyUI-Manager, model '
+    'downloads, settings) and returns the exact remaining steps in instruction: follow them in order. Never install '
+    'packs in the Nodes Manager window, never search packs there, never click Apply Changes, never toggle settings by hand. '
     + CARD_RULE +
-    'models=now queues every download itself (tutorial step 1 first): do not click downloads in the window. '
-    'Node packs now: call comfy_downloads action=watch_nodes packs=[pack names] BEFORE clicking Install All visibly, '
-    'post its card, then finish the visible install/restart recipe and recheck. Preferences are not proof of installation. '
-    'Then call comfy_onboarding action=tutorial at once (step 1 may start while other files download); do not ask What should I do first yet.'
+    'Then call comfy_onboarding action=tutorial (step 1 may start while other files download); do not ask What should I do first yet.'
 )
 LESSON = (
     'TUTORIAL STEP 1/6. Load skill_view("comfy-recipe:first-image-tutorial") and skill_view("comfy-recipe:qwen-image-2-1-prompting"). '
@@ -65,7 +65,9 @@ LESSON_2 = (
     'Tell the user they can attach ONE OR SEVERAL images to this chat and say what to change (the first image is '
     'edited, the others are references), unless their current message already does. If awaiting_images, wait for them. '
     'Before Run: if downloads.group tutorial-2 is not done, comfy_downloads action=wait group=tutorial-2 wait_s=300; '
-    'settings (Nodes 2.0) need explicit consent; models_without_url block the run until supplied. Then '
+    'settings (Nodes 2.0) need explicit consent; after a yes call comfy_workflows action=apply_settings '
+    'workflow=qwen-image-2-1-i2i, then desktop_preview close + open (never toggle it by hand); '
+    'models_without_url block the run until supplied. Then '
     'comfy_onboarding action=tutorial step=2 begin_run=true prompt=<exact edit text entered> workflow_path=<selected i2i path>, '
     'click Run visibly, comfy_result prompt_id=latest, compare output with the inputs visually, then '
     'comfy_onboarding action=complete prompt_id=<explicit id>. Steps 3-6 are not available yet.'
@@ -140,8 +142,10 @@ def reports(workflow_id=None):
     except Exception as exc:
         settings, error = None, str(exc)
     inventory = {}  # One snapshot per report, never a process-wide readiness cache.
+    packs = downloads.installed_packs(inst['url']) if any(
+        (e.get('requirements') or {}).get('frontend_nodes') for e in entries) else None
     return [dependencies.check(inst, entry, library.load_asset(entry), info, settings, error,
-                               model_inventory=inventory) for entry in entries]
+                               model_inventory=inventory, installed_packs=packs) for entry in entries]
 
 
 def _proposal(workflow_id=None):
@@ -213,6 +217,47 @@ def _resume_step(tutorial: dict) -> tuple[int, bool]:
     return step, state in ('completed', 'skipped', 'not_offered')
 
 
+def apply_preferences(inst: dict, choices: dict, settings_choice) -> dict:
+    """Do the approved setup work in the plugin (no window clicks) and spell out the remaining steps in order."""
+    approved = [key for key in ('nodes', 'models') if choices[key] == 'now']
+    out = {'approved_categories': approved}
+    proposal = _proposal() if approved or settings_choice == 'apply' else {}
+    d, root = _managed_target()
+    if 'models' in approved:
+        res = download_flow.queue(d, root, proposal['models'])
+        out['downloads'] = {k: res.get(k) for k in ('state', 'progress_card', 'groups', 'total_bytes', 'files',
+                                                    'models_without_url')}
+    nodes_running = False
+    if 'nodes' in approved:
+        out['nodes'] = download_flow.install_nodes(inst, d, proposal.get('node_packs') or None) \
+            if proposal.get('node_packs') else {'state': 'done', 'queued': [], 'note': 'No missing node packs'}
+        nodes_running = out['nodes'].get('state') == 'running'
+    settings_done = False
+    if settings_choice == 'apply' and proposal.get('settings'):
+        out['settings'] = core.apply_settings(inst['url'], [{'id': s['id'], 'value': s['value']} for s in proposal['settings']])
+        settings_done = bool(out['settings']['applied'])
+    steps = []
+    if out.get('downloads') or nodes_running:
+        steps.append('Post each progress_card MEDIA line once (models and/or nodes), alone on its own line.')
+    if 'models' in approved:
+        steps.append('Models download in the background (tutorial step 1 first); do not click downloads in the window.')
+    if nodes_running:
+        steps += ['Do NOT open the Nodes Manager: the packs are already queued there by the plugin.',
+                  'comfy_downloads action=nodes_status wait_s=300, repeated until state=done (one short line per call).',
+                  'comfy_setup action=restart (one call; never the Manager\'s Apply Changes).']
+    if nodes_running or settings_done:
+        steps.append('desktop_preview action=close, then action=open with the same url, so the window loads the new '
+                     'nodes' + (' and shows Nodes 2.0' if settings_done else '') + '. Then select the text-to-image tab again.')
+    if nodes_running:
+        steps.append('comfy_onboarding action=status refresh=true: proposal.node_packs must be empty.')
+    if settings_choice != 'apply' and proposal.get('settings'):
+        steps.append('Settings were not approved: leave them unchanged.')
+    steps.append('comfy_onboarding action=tutorial.')
+    out['instruction'] = CARD_RULE + 'Remaining steps, in order: ' + ' '.join(
+        f'({i}) {step}' for i, step in enumerate(steps, 1))
+    return out
+
+
 def handle(params, session_id):
     if not isinstance(session_id, str) or not session_id.strip():
         raise ValueError('Trusted calling-session context is required')
@@ -235,19 +280,7 @@ def handle(params, session_id):
         return state
     if action == 'preferences':
         state = onboarding.preferences(core.DATA, ident, session_id, nodes=params.get('nodes'), models=params.get('models'))
-        approved = [key for key in ('nodes', 'models') if state['setup_choices'][key] == 'now']
-        result = dict(state, approved_categories=approved)
-        if 'models' in approved:
-            d, root = _managed_target()
-            res = download_flow.queue(d, root, _proposal()['models'])
-            result['downloads'] = {k: res.get(k) for k in ('state', 'progress_card', 'groups', 'total_bytes', 'files',
-                                                           'models_without_url')}
-        result['instruction'] = (
-            (CARD_RULE + 'Models download in the background, tutorial step 1 first. ' if 'models' in approved else '')
-            + ('Node packs (visibly): comfy_downloads action=watch_nodes packs=[names] first and post its card, then '
-               'Install All, restart when idle, recheck. ' if 'nodes' in approved else '')
-            + 'Settings need separate consent. Then call comfy_onboarding action=tutorial right away.')
-        return result
+        return dict(state, **apply_preferences(inst, state['setup_choices'], params.get('settings')))
     if action == 'tutorial':
         replay = params.get('replay') is True
         if params.get('resume'):

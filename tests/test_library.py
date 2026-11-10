@@ -109,15 +109,15 @@ class CatalogTests(unittest.TestCase):
     def test_local_minimax_is_not_labelled_paid_api(self):
         entries=library.load_catalog()['workflows']
         mini=[e for e in entries if e['id'].startswith('minimax-')]
-        self.assertEqual(len(mini),2)
+        self.assertEqual([e['id'] for e in mini],['minimax-h3-r2v-mix'])
         self.assertTrue(all(e['requirements']['models'] for e in mini))
         self.assertTrue(all(e['requirements']['services']==[] for e in mini))
 
-    def test_shipped_six_assets_are_unique(self):
+    def test_shipped_five_assets_are_unique(self):
         c=library.load_catalog()
-        self.assertEqual(len(c['workflows']),6)
+        self.assertEqual(len(c['workflows']),5)
         ids=[library.load_asset(e)['id'] for e in c['workflows']]
-        self.assertEqual(len(set(ids)),6)
+        self.assertEqual(len(set(ids)),5)
 
     def test_duplicate_destination_filename_and_uuid_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

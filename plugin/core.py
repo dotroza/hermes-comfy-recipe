@@ -480,6 +480,61 @@ def setup_stop() -> dict:
     return installer.stop(d, port=_previous_port(st))
 
 
+RESTART_NEXT = ('ComfyUI restarted. Now desktop_preview action=close, then action=open with the same url (an in-page '
+                'reload keeps stale node lists; unsaved tabs come back), then recheck readiness '
+                '(comfy_onboarding action=status refresh=true during setup, else comfy_workflows action=check).')
+
+
+def setup_restart(wait_s: int = 240) -> dict:
+    """Stop + start Comfy Recipe's own ComfyUI in one call (loads new node packs). Refuses while a job runs."""
+    d = _managed_dir()
+    if not d or not installer.manifest(d):
+        raise ValueError("Comfy Recipe's ComfyUI is not installed yet (comfy_setup action=check / install)")
+    url = f"http://127.0.0.1:{int(installer.manifest(d)['port'])}"
+    if cc.alive(url):
+        try:
+            q = cc.get_json(url, '/queue', timeout=5)
+            if q.get('queue_running') or q.get('queue_pending'):
+                return {'restarted': False, 'running': True, 'url': url,
+                        'note': 'A generation is running or queued: wait for it to finish, then call restart again'}
+        except cc.ComfyError:
+            pass
+        try:
+            m = cc.get_json(url, '/v2/manager/queue/status', timeout=5)
+            if m.get('is_processing'):
+                return {'restarted': False, 'running': True, 'url': url,
+                        'note': 'Node packs are still installing: comfy_downloads action=nodes_status wait_s=300, then restart'}
+        except cc.ComfyError:
+            pass
+    stopped = setup_stop()
+    deadline = time.time() + 30
+    while cc.port_open(url) and time.time() < deadline:
+        time.sleep(0.5)
+    result = setup_start(wait_s)
+    result.update(restarted=bool(result.get('running')), stop=stopped)
+    if result.get('running'):
+        result['next'] = RESTART_NEXT
+    return result
+
+
+def apply_settings(url: str, rows: list[dict]) -> dict:
+    """Write approved frontend settings through ComfyUI's settings API (same store as the Settings dialog).
+    The open window keeps its old values until it is closed and reopened."""
+    applied = []
+    for row in rows:
+        sid, value = row['id'], row['value']
+        if not isinstance(sid, str) or not re.fullmatch(r'[A-Za-z0-9_.-]+', sid):
+            raise ValueError(f'Unsafe setting id: {sid!r}')
+        cc.post_json(url, '/settings/' + sid, value)
+        applied.append(sid)
+    current = cc.get_json(url, '/settings')
+    verified = [r['id'] for r in rows if isinstance(current, dict) and current.get(r['id']) == r['value']]
+    return {'applied': applied, 'verified': verified,
+            'failed': [sid for sid in applied if sid not in verified],
+            'window_note': 'The open window still shows the old value until desktop_preview close + open '
+                           '(the restart after node packs already does this).'}
+
+
 def setup_adopt(dir: str) -> dict:
     """Use an existing Comfy Recipe install folder again (after reset, or after the user moved it). No download."""
     if not dir:

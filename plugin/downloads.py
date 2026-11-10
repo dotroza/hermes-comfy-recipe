@@ -6,7 +6,7 @@ rest (smallest first). New items can be queued while the worker runs; it re-read
 
 Everything the desktop progress card needs is written to JSON files in ``<install>/.comfy-recipe/progress/``:
     downloads.json   models (per file and per group bytes, speed, ETA)
-    nodes.json       ComfyUI-Manager install queue (``python downloads.py nodes <install dir> --url U``)
+    nodes.json       ComfyUI-Manager install queue (``python downloads.py nodes <install dir> --url U --pack id::name``)
 The installer's own ``.comfy-recipe/status.json`` is the third card (kind=install).
 """
 from __future__ import annotations
@@ -406,63 +406,186 @@ def run(install_dir) -> str:
 
 
 # ---------------------------------------------------------------- node packs (ComfyUI-Manager queue)
-def watch_nodes(install_dir, url: str, packs: list[str] | None = None, poll: float = 1.0,
-                idle_exit_s: float = 8.0, start_timeout_s: float = 600.0, max_loops: int | None = None) -> str:
-    """Mirror ComfyUI-Manager's install queue into nodes.json until it has been idle for idle_exit_s."""
+NODES_DONE_NOTE = 'Node packs installed. Next: comfy_setup action=restart (never the Manager\'s Apply Changes)'
+
+
+def _pack_rows(packs) -> list[dict]:
+    """[{'id', 'name'}] from dicts, 'id' strings or 'id::name' strings (worker command line)."""
+    rows = []
+    for p in packs or []:
+        if isinstance(p, dict):
+            pid = str(p.get('id') or p.get('name') or '')
+            rows.append({'id': pid, 'name': str(p.get('name') or pid)})
+        else:
+            pid, _, name = str(p).partition('::')
+            rows.append({'id': pid, 'name': name or pid})
+    return [r for r in rows if r['id']]
+
+
+def _http_json(url: str, path: str, payload=None, timeout: float = 10):
+    """GET (payload None) or JSON POST. Manager rejects form content types, so a POST always sends JSON."""
+    data = None if payload is None else json.dumps(payload).encode('utf-8')
+    req = request.Request(url.rstrip('/') + path, data=data,
+                          headers={'Content-Type': 'application/json'} if data is not None else {})
+    with request.urlopen(req, timeout=timeout) as r:
+        raw = r.read()
+    try:
+        return json.loads(raw) if raw else {}
+    except ValueError:
+        return {}
+
+
+def installed_packs(url: str) -> set | None:
+    """Registry ids (and folder keys) ComfyUI-Manager reports as installed+enabled; None when it cannot tell."""
+    try:
+        d = _http_json(url, '/v2/customnode/installed')
+    except Exception:
+        return None
+    if not isinstance(d, dict):
+        return None
+    out = set()
+    for key, v in d.items():
+        if isinstance(v, dict) and v.get('enabled') is False:
+            continue
+        out.add(str(key).lower())
+        for k in ('cnr_id', 'aux_id'):
+            if isinstance(v, dict) and v.get(k):
+                out.add(str(v[k]).lower())
+    return out
+
+
+def queue_pack_installs(url: str, packs, client_id: str = 'comfy-recipe') -> dict:
+    """Queue registry packs in ComfyUI-Manager with the same payload as the frontend's Install All, then start its
+    worker (the queue never runs by itself: a queued-but-unstarted install stays pending forever)."""
+    rows = _pack_rows(packs)
+    have = installed_packs(url) or set()
+    queued, already = [], []
+    for r in rows:
+        if r['id'].lower() in have:
+            already.append(r['id'])
+            continue
+        _http_json(url, '/v2/manager/queue/task', {
+            'kind': 'install', 'ui_id': f"comfy-recipe-{r['id']}-{int(time.time() * 1000)}", 'client_id': client_id,
+            'params': {'id': r['id'], 'version': 'latest', 'selected_version': 'latest', 'repository': '',
+                       'channel': 'default', 'mode': 'cache'}})
+        queued.append(r['id'])
+    status = _http_json(url, '/v2/manager/queue/status')
+    if queued or (isinstance(status, dict) and int(status.get('pending_count') or 0)):
+        _http_json(url, '/v2/manager/queue/start', {})
+    return {'queued': queued, 'already_installed': already}
+
+
+REGISTRY_NOT_READY = ('Cannot resolve install target', 'is not a CNR node')
+REGISTRY_WAIT_NOTE = "Waiting for ComfyUI-Manager's registry list (first start after install), then retrying"
+
+
+def registry_not_ready(url: str, ids) -> list[str]:
+    """Pack ids whose LATEST Manager result is 'not a CNR node': the registry list is not loaded yet. On a fresh
+    install Manager fetches it in the background for ~10-60 s after startup; installs queued before that fail."""
+    try:
+        hist = (_http_json(url, '/v2/manager/queue/history') or {}).get('history') or {}
+    except Exception:
+        return []
+    latest = {}
+    for item in hist.values():
+        pid = str(((item or {}).get('params') or {}).get('id') or '').lower()
+        if pid and (pid not in latest or str(item.get('timestamp')) > str(latest[pid].get('timestamp'))):
+            latest[pid] = item
+    wanted = {str(i).lower() for i in ids}
+    return [pid for pid, item in latest.items()
+            if pid in wanted and any(t in str(item.get('result')) for t in REGISTRY_NOT_READY)]
+
+
+def _nodes_card(rows: list[dict], have: set | None, state: str, started: float, **extra) -> dict:
+    states = {r['name']: ('done' if have is not None and r['id'].lower() in have else
+                          'error' if state in ('done', 'error') else 'pending') for r in rows}
+    done = sum(v == 'done' for v in states.values())
+    total = len(rows)
+    card = {'kind': 'nodes', 'title': 'Installing node packs', 'state': state, 'packs': [r['name'] for r in rows],
+            'pack_ids': [r['id'] for r in rows], 'pack_states': states, 'done': done, 'total': total,
+            'percent': round(100 * done / total, 1) if total else 0.0, 'started_at': started, 'updated_at': time.time()}
+    card.update(extra)
+    return card
+
+
+def watch_nodes(install_dir, url: str, packs=None, poll: float = 1.0,
+                idle_exit_s: float = 8.0, start_timeout_s: float = 600.0, max_loops: int | None = None,
+                queued: bool = False, registry_wait_s: float = 300.0, retry_pause_s: float = 10.0) -> str:
+    """Mirror ComfyUI-Manager's install queue into nodes.json. Per-pack state comes from Manager's installed list,
+    so a pack that failed (or was never queued) shows as failed instead of a ticked row. queued=True: the plugin
+    queued the installs itself, so a queue that is already idle means finished, not 'not started yet'."""
     path = card_path(install_dir, 'nodes')
-    started, seen, idle_since, loops, best_total = time.time(), False, None, 0, len(packs or [])
-    card = {'kind': 'nodes', 'title': 'Installing node packs', 'state': 'pending', 'packs': packs or [],
-            'done': 0, 'total': best_total, 'percent': 0.0, 'started_at': started, 'updated_at': started}
-    _write(path, card)
+    rows = _pack_rows(packs)
+    started, seen, idle_since, loops = time.time(), queued, None, 0
+    have = installed_packs(url)
+    _write(path, _nodes_card(rows, have, 'pending', started))
     while max_loops is None or loops < max_loops:
         loops += 1
         try:
-            with request.urlopen(url.rstrip('/') + '/v2/manager/queue/status', timeout=5) as r:
-                s = json.loads(r.read())
-            done = int(s.get('done_count') or 0)
-            remaining = int(s.get('total_count') or 0)
-            busy = bool(s.get('is_processing')) or remaining > 0
-            best_total = max(best_total, done + remaining)
-            card.update(done=done, total=best_total, in_progress=int(s.get('in_progress_count') or 0),
-                        percent=round(100 * done / best_total, 1) if best_total else 0.0, error=None)
+            s = _http_json(url, '/v2/manager/queue/status', timeout=5)
+            busy = bool(s.get('is_processing')) or int(s.get('total_count') or 0) > 0
+            have = installed_packs(url)
+            all_in = bool(rows) and have is not None and all(r['id'].lower() in have for r in rows)
             if busy:
                 seen, idle_since = True, None
-                card['state'] = 'running'
-            elif seen:
+                _write(path, _nodes_card(rows, have, 'running', started))
+            elif seen or all_in:
                 idle_since = idle_since or time.time()
-                if time.time() - idle_since >= idle_exit_s:
-                    card.update(state='done', percent=100.0, done=max(done, best_total),
-                                note='Restart ComfyUI (comfy_setup stop + start) to load the new node packs')
-                    card['updated_at'] = time.time()
-                    _write(path, card)
-                    return 'done'
+                if all_in or time.time() - idle_since >= idle_exit_s:
+                    if have is None or all_in:
+                        _write(path, _nodes_card(rows, have, 'done', started, note=NODES_DONE_NOTE))
+                        return 'done'
+                    absent = [r for r in rows if r['id'].lower() not in have]
+                    retry = set(registry_not_ready(url, [r['id'] for r in absent])) if queued else set()
+                    if retry and time.time() - started < registry_wait_s:
+                        _write(path, _nodes_card(rows, have, 'running', started, note=REGISTRY_WAIT_NOTE))
+                        time.sleep(retry_pause_s)
+                        queue_pack_installs(url, [r for r in absent if r['id'].lower() in retry])
+                        idle_since = None
+                        continue
+                    missing = [r['name'] for r in absent]
+                    _write(path, _nodes_card(rows, have, 'error', started,
+                                             error='Not installed: ' + ', '.join(missing),
+                                             note='Some packs did not install: retry comfy_downloads action=install_nodes'))
+                    return 'error'
+                _write(path, _nodes_card(rows, have, 'running', started))
             elif time.time() - started > start_timeout_s:
-                card.update(state='idle', note='No node-pack install was started in the window')
-                card['updated_at'] = time.time()
-                _write(path, card)
+                _write(path, _nodes_card(rows, have, 'idle', started, note='No node-pack install was started'))
                 return 'never started'
+            else:
+                _write(path, _nodes_card(rows, have, 'pending', started))
         except Exception as e:
-            card['error'] = f'{type(e).__name__}: {e}'
-        card['updated_at'] = time.time()
-        _write(path, card)
+            card = _read(path, {}) or {}
+            card.update(error=f'{type(e).__name__}: {e}', updated_at=time.time())
+            _write(path, card)
         time.sleep(poll)
     return 'max loops'
 
 
-def start_nodes_watch(install_dir, url: str, packs: list[str] | None = None) -> dict:
+def start_nodes_watch(install_dir, url: str, packs=None, queued: bool = False) -> dict:
     d = progress_dir(install_dir)
     d.mkdir(parents=True, exist_ok=True)
+    rows = _pack_rows(packs)
     w = _read(d / 'nodes-worker.json', {}) or {}
     if installer._pid_alive(w.get('pid'), _marker(install_dir, 'nodes')):
         return {'pid': w['pid'], 'new': False, 'progress_card': 'MEDIA:' + str(card_path(install_dir, 'nodes'))}
-    _write(card_path(install_dir, 'nodes'), {'kind': 'nodes', 'title': 'Installing node packs', 'state': 'pending',
-                                             'packs': packs or [], 'done': 0, 'total': len(packs or []),
-                                             'percent': 0.0, 'started_at': time.time(), 'updated_at': time.time()})
+    _write(card_path(install_dir, 'nodes'), _nodes_card(rows, None, 'pending', time.time()))
     args = [installer._host_python(), str(Path(__file__).resolve()), 'nodes', Path(install_dir).resolve().as_posix(),
-            '--url', url] + [a for p in packs or [] for a in ('--pack', p)]
+            '--url', url] + [a for r in rows for a in ('--pack', f"{r['id']}::{r['name']}")] + (['--queued'] if queued else [])
     p = installer._detached(args, d / 'nodes-worker.out', cwd=str(d))
     _write(d / 'nodes-worker.json', {'pid': p.pid, 'started_at': time.time()})
     return {'pid': p.pid, 'new': True, 'progress_card': 'MEDIA:' + str(card_path(install_dir, 'nodes'))}
+
+
+def nodes_status(install_dir, wait_s: int = 0) -> dict:
+    """Read the node-pack card; with wait_s, block until it is done/error/idle (or the time is up)."""
+    card = card_path(install_dir, 'nodes')
+    deadline = time.time() + max(0, min(int(wait_s or 0), 900))
+    while True:
+        data = _read(card, {}) or {'state': 'idle'}
+        if data.get('state') in ('done', 'error', 'idle') or time.time() >= deadline:
+            return dict(data, progress_card='MEDIA:' + str(card))
+        time.sleep(2)
 
 
 if __name__ == '__main__':
@@ -472,8 +595,9 @@ if __name__ == '__main__':
     ap.add_argument('dir')
     ap.add_argument('--url')
     ap.add_argument('--pack', action='append')
+    ap.add_argument('--queued', action='store_true')
     a = ap.parse_args()
     if a.cmd == 'run':
         print(time.strftime('%Y-%m-%d %H:%M:%S'), 'downloads', run(Path(a.dir)), flush=True)
     else:
-        print(time.strftime('%Y-%m-%d %H:%M:%S'), 'nodes', watch_nodes(Path(a.dir), a.url, a.pack), flush=True)
+        print(time.strftime('%Y-%m-%d %H:%M:%S'), 'nodes', watch_nodes(Path(a.dir), a.url, a.pack, queued=a.queued), flush=True)

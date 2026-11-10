@@ -36,15 +36,14 @@ class LibraryProposalTests(unittest.TestCase):
         self.assertEqual(len(p['models']),1)
         self.assertEqual(p['download_bytes'],1234567890)
 
-    def test_catalog_qwen_enhancer_optional(self):
+    def test_catalog_qwen_enhancer_required(self):
+        """Regression: marking the PE model optional for t2i left the window's Missing Models panel showing
+        'Setup required' during tutorial step 1, so the first run had to wait for a background download."""
         from plugin import library
         for entry in library.load_catalog()['workflows']:
-            if entry['id']=='qwen-image-2-1-t2i':
+            if entry['id'] in ('qwen-image-2-1-t2i', 'qwen-image-2-1-i2i'):
                 pe=[m for m in entry['requirements']['models'] if '_pe_' in m['name']]
-                self.assertTrue(pe and all(m.get('optional') for m in pe))
-            if entry['id']=='qwen-image-2-1-i2i':
-                pe=[m for m in entry['requirements']['models'] if '_pe_' in m['name']]
-                self.assertTrue(pe and not any(m.get('optional') for m in pe))
+                self.assertTrue(pe and not any(m.get('optional') for m in pe), entry['id'])
 
     def test_size_cache_expires_without_network(self):
         import tempfile

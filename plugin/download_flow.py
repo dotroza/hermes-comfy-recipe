@@ -2,12 +2,14 @@
 
 Order: tutorial step 1 files, then tutorial step 2 files, then everything else (smallest first). Works for the bundled
 library (catalog requirements), for a user's own saved workflow (models embedded in node ``properties.models``, the
-same data ComfyUI's Issues tab uses) and for an explicit list. Never installs node packs; only watches their queue.
+same data ComfyUI's Issues tab uses) and for an explicit list. Node packs (``install_nodes``) are queued in
+ComfyUI-Manager through its API - the same request as the window's Install All - only after the user's consent.
 """
 from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from urllib.parse import quote
 
@@ -77,8 +79,10 @@ def bundled_proposal(inst: dict, workflow_ids: list[str] | None) -> dict:
         raise ValueError('Unknown bundled workflow id(s): ' + ', '.join(sorted(unknown)))
     info = json.loads(core._object_info_path(inst).read_text(encoding='utf-8'))
     inventory = {}
+    packs = downloads.installed_packs(inst['url']) if any(
+        (e.get('requirements') or {}).get('frontend_nodes') for e in entries) else None
     reports = [dependencies.check(inst, e, library.load_asset(e), info, {}, None,
-                                  model_inventory=inventory) for e in entries]
+                                  model_inventory=inventory, installed_packs=packs) for e in entries]
     return dependencies.library_proposal(reports, size_of=dependencies.cached_size_lookup(core.DATA))
 
 
@@ -136,6 +140,70 @@ def start(params: dict) -> dict:
     return result
 
 
+def catalog_packs() -> dict[str, dict]:
+    """Registry packs the bundled workflows declare, keyed by lower-case id."""
+    out = {}
+    for e in library.load_catalog()['workflows']:
+        for p in (e.get('requirements') or {}).get('custom_node_packs', []):
+            out.setdefault(str(p['id']).lower(), {'id': p['id'], 'name': p.get('name', p['id'])})
+    return out
+
+
+def resolve_packs(packs) -> list[dict]:
+    """Pack ids or display names (or {id, name}) -> [{id, name}]; catalog names are matched case-insensitively."""
+    known = catalog_packs()
+    by_name = {v['name'].lower(): v for v in known.values()}
+    rows = []
+    for p in packs or []:
+        key = str(p.get('id') if isinstance(p, dict) else p).strip()
+        row = known.get(key.lower()) or by_name.get(key.lower())
+        if row is None:
+            row = {'id': key, 'name': str(p.get('name') or key) if isinstance(p, dict) else key}
+        if row['id'] and row not in rows:
+            rows.append(row)
+    return rows
+
+
+def nodes_next(inst: dict, state: str | None) -> str:
+    restart = ('comfy_setup action=restart (one call: stops, starts and waits; never the Manager\'s Apply Changes '
+               'button), then desktop_preview action=close and action=open on the same url so the window loads the '
+               'new nodes, then comfy_onboarding action=status refresh=true (or comfy_workflows action=check) to verify'
+               if inst['name'] == core.MANAGED_NAME else
+               'ask the user to restart this ComfyUI (another launcher owns it), then desktop_preview close + open')
+    if state == 'done':
+        return 'All packs are installed. Do NOT open the Nodes Manager or search packs. Next: ' + restart + '.'
+    if state == 'error':
+        return ('Some packs failed (see error / pack_states). Show the error, offer one retry with '
+                'comfy_downloads action=install_nodes; never install them one by one in the Manager.')
+    if state == 'idle':
+        return 'No node-pack install is running. After consent: comfy_downloads action=install_nodes.'
+    return ('Still installing. Call comfy_downloads action=nodes_status wait_s=300 again (one short line per call). '
+            'Do not touch the Nodes Manager meanwhile.')
+
+
+def install_nodes(inst: dict, d: Path, packs=None, workflow_ids=None) -> dict:
+    """Install node packs after consent: one call queues them in ComfyUI-Manager (API) and starts a live card."""
+    rows = resolve_packs(packs) if packs else bundled_proposal(inst, workflow_ids)['node_packs']
+    rows = [{'id': r['id'], 'name': r.get('name', r['id'])} for r in rows]
+    if not rows:
+        return {'state': 'done', 'queued': [], 'note': 'No missing node packs', 'instruction': nodes_next(inst, 'done')}
+    try:
+        res = downloads.queue_pack_installs(inst['url'], rows)
+    except Exception as exc:
+        raise ValueError(f'ComfyUI-Manager did not accept the install ({type(exc).__name__}: {exc}). '
+                         'Is ComfyUI running with --enable-manager?') from None
+    if not res['queued']:
+        card = downloads.card_path(d, 'nodes')
+        downloads._write(card, downloads._nodes_card(rows, {r['id'].lower() for r in rows}, 'done', time.time(),
+                                                     note=downloads.NODES_DONE_NOTE))
+        return dict(res, state='done', progress_card='MEDIA:' + str(card), instruction=nodes_next(inst, 'done'))
+    watch = downloads.start_nodes_watch(d, inst['url'], rows, queued=True)
+    return dict(res, state='running', progress_card=watch['progress_card'], instruction=(
+        'Installing in the background through ComfyUI-Manager: nothing to click in the window, do NOT open the '
+        'Nodes Manager. Post progress_card once, then call comfy_downloads action=nodes_status wait_s=300 until '
+        'state is done (pip dependencies can take a few minutes).'))
+
+
 def handle(params: dict) -> dict:
     action = params.get('action', 'status')
     if action == 'start':
@@ -159,9 +227,11 @@ def handle(params: dict) -> dict:
         return result
     if action == 'cancel':
         return downloads.cancel(d)
+    if action == 'install_nodes':
+        return install_nodes(inst, d, params.get('packs'), params.get('workflow_ids'))
     if action == 'watch_nodes':
-        return downloads.start_nodes_watch(d, inst['url'], [str(p) for p in params.get('packs') or []])
+        return downloads.start_nodes_watch(d, inst['url'], resolve_packs(params.get('packs')))
     if action == 'nodes_status':
-        card = downloads.card_path(d, 'nodes')
-        return dict(downloads._read(card, {}) or {'state': 'idle'}, progress_card='MEDIA:' + str(card))
+        result = downloads.nodes_status(d, int(params.get('wait_s') or 0))
+        return dict(result, instruction=nodes_next(inst, result.get('state')))
     raise ValueError(f'Unknown downloads action: {action}')

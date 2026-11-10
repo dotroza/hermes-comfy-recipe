@@ -65,7 +65,7 @@ class ToolTests(unittest.TestCase):
     def test_library_listing_works_without_active_backend(self):
         with patch.object(core,'active',side_effect=AssertionError('must be offline')):
             r=plugin._workflows({'action':'library'})
-        self.assertEqual(len(r['workflows']),6)
+        self.assertEqual(len(r['workflows']),5)
         self.assertEqual(r['source'],'bundled_library')
 
     def test_install_dispatch_is_explicit(self):

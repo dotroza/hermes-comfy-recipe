@@ -19,13 +19,14 @@ install only the approved missing packs; do not assume the current Issues panel 
 ## The first-image lesson
 
 The user describes an image in chat. The native `qwen-image-2-1-prompting` skill writes a concise, faithful prompt,
-including exact requested lettering. It does not load the optional enhancement model. The tutorial selects the
+including exact requested lettering. It keeps the graph's enhancement model switched off. The tutorial selects the
 text-to-image working copy, types the prompt and clicks Run visibly. A backend baseline and prompt hash are recorded
 immediately before Run; completion requires a new matching successful image with uncached sampling and visual review.
 
 The bundled text-to-image graph is version 1.1.0: its prompt preview/encoder path receives the agent-written text
-directly. The old built-in enhancement branch is disconnected from the output path so a fresh user need not download
-that unused model just to pass validation. Every graph widget value is preserved. Existing user copies are never
+directly. The old built-in enhancement branch is disconnected from the output path, but the subgraph's `PE_model`
+loader still names its file and the frontend's Missing Models check blocks Run ("Setup required") without it, so
+the file is a required download in tutorial step 1's group. Every graph widget value is preserved. Existing user copies are never
 overwritten; request a versioned bundle sibling when upgrading an existing graph. The image-edit graph is unchanged:
 its connected enhancement loader may still require the file for validation even when refinement is off.
 
@@ -42,7 +43,7 @@ reaches the tutorial hook even without a Recipe kickoff marker. In Recipe chats,
 and “skip tutorial” exits. Quoted phrases and unrelated chats are not commands. Replay preserves setup preferences.
 
 `comfy_onboarding` provides status, preferences, tutorial, complete and skip actions. Calling-session identity comes
-from Hermes runtime context, not model arguments. `status refresh=true` rechecks all six workflows; `status
+from Hermes runtime context, not model arguments. `status refresh=true` rechecks all five workflows; `status
 workflow=qwen-image-2-1-t2i` checks the lesson only. `tutorial begin_run=true prompt=<exact entered text>` prepares
 verification; include `workflow_path=<exact visibly selected saved path>` when using a versioned sibling. The
 selected copy's real UUID is checked; only the prompt hash is retained, not the description. Onboarding resolves

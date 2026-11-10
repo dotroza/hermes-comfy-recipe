@@ -159,10 +159,14 @@ export function summarize(data, now = Date.now() / 1000) {
   if (kind === 'nodes') {
     const label = data.state === 'done' ? (data.note || 'Node packs installed')
       : data.state === 'idle' ? (data.note || 'Waiting for the install to start')
+      : data.state === 'error' ? (data.error || data.note || 'Some packs did not install')
       : `${data.done || 0}/${data.total || '?'} packs${data.error ? ` · ${data.error}` : ''}`
     return {
       kind, title: data.title || 'Installing node packs', state: stale ? 'stalled' : data.state, percent: data.percent || 0, label,
-      rows: (data.packs || []).map(name => ({ label: name, state: data.state === 'done' ? 'done' : 'pending', detail: '' }))
+      rows: (data.packs || []).map(name => {
+        const st = (data.pack_states || {})[name] || (data.state === 'done' ? 'done' : 'pending')
+        return { label: name, state: st, detail: st === 'error' ? 'not installed' : '' }
+      })
     }
   }
   return null

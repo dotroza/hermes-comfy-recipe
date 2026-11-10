@@ -12,6 +12,7 @@ app.registerExtension({
         'workflow', 'Comfy.PreviousWorkflow', 'Comfy.OpenWorkflowsPaths',
         'Comfy.ActiveWorkflowIndex', 'Comfy.Workflow.Drafts', 'Comfy.Workflow.DraftOrder'
       ]);
+      const emptyOpenPointers = [];
       for (const storage of [localStorage, sessionStorage]) {
         for (let i = 0; i < storage.length; i++) {
           const key = storage.key(i);
@@ -19,6 +20,15 @@ app.registerExtension({
             const index = JSON.parse(storage.getItem(key));
             if (index && Array.isArray(index.order) && index.order.length === 0 &&
                 index.entries && Object.keys(index.entries).length === 0) continue;
+          }
+          if (key?.startsWith('Comfy.Workflow.OpenPaths:') ||
+              key === 'Comfy.Workflow.LastOpenPaths:personal') {
+            const pointer = JSON.parse(storage.getItem(key));
+            if (pointer?.workspaceId === 'personal' && Array.isArray(pointer.paths) &&
+                pointer.paths.length === 0 && pointer.activeIndex === -1) {
+              emptyOpenPointers.push([storage, key]);
+              continue;
+            }
           }
           if (legacy.has(key) || [
                 'Comfy.Workflow.DraftIndex.v2:', 'Comfy.Workflow.Draft.v2:',
@@ -32,9 +42,12 @@ app.registerExtension({
         }
       }
       const paths = __WORKFLOW_PATHS__;
-      localStorage.setItem('Comfy.Workflow.LastOpenPaths:personal', JSON.stringify({
-        workspaceId: 'personal', paths, activeIndex: 0
-      }));
+      const openPointer = JSON.stringify({workspaceId: 'personal', paths, activeIndex: 0});
+      localStorage.setItem('Comfy.Workflow.LastOpenPaths:personal', openPointer);
+      // Native restore prefers session pointers: an empty bootstrap pointer must
+      // not shadow the first-launch localStorage fallback. Write only after all
+      // storage has been checked for real restored tabs or drafts.
+      for (const [storage, key] of emptyOpenPointers) storage.setItem(key, openPointer);
       localStorage.setItem('Comfy.Workflow.LastActivePath:personal', JSON.stringify({
         workspaceId: 'personal', path: paths[0]
       }));

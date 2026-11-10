@@ -31,7 +31,9 @@ the tutorial after step 1, or runs `/comfy tutorial 2`. Steps 3-6 do not exist y
    change. The first image is the one edited; the others are references (an outfit, an object, a style…).
    Give one example. Then wait.
 5. Readiness before any Run, in ONE consent form when something needs a yes:
-   - `settings`: Nodes 2.0 (`Comfy.VueNodes.Enabled`) draws the ImageCompare slider; separate explicit consent.
+   - `settings`: Nodes 2.0 (`Comfy.VueNodes.Enabled`) draws the ImageCompare slider; separate explicit consent. On yes:
+     `comfy_workflows action=apply_settings workflow=qwen-image-2-1-i2i`, then `desktop_preview close` + `open` and
+     switch back to the i2i tab. Never toggle it by hand in the Settings dialog.
    - `downloads.consent_needed`: ask once with the verified GB, then `comfy_downloads action=start workflow_ids=["qwen-image-2-1-i2i"]`.
    - `models_without_url`: search existing installs for the EXACT filename (hard-link offer); otherwise blocker.
    - Queued downloads: `comfy_downloads action=wait group=tutorial-2 wait_s=300` (one short line per call), then click

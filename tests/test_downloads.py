@@ -68,9 +68,9 @@ class CatalogTests(unittest.TestCase):
         keys = download_flow.tutorial_keys()
         self.assertEqual(download_flow.group_for('diffusion_models', 'qwen_image_2.1_int8_convrot.safetensors', keys), 'tutorial-1')
         self.assertEqual(download_flow.group_for('text_encoders', 'qwen3vl_8b_w4a8.safetensors', keys), 'tutorial-1')
-        # Optional for t2i (enhancer off) but connected in the edit graph: belongs to step 2.
-        self.assertEqual(download_flow.group_for('text_encoders', 'qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors', keys), 'tutorial-2')
-        self.assertEqual(download_flow.group_for('vae', 'wan_2.1_vae.safetensors', keys), 'other')
+        # The t2i window flags the prompt-enhancer file as missing (blocks Run): it ships with step 1.
+        self.assertEqual(download_flow.group_for('text_encoders', 'qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors', keys), 'tutorial-1')
+        self.assertEqual(download_flow.group_for('vae', 'trellis_2_shape_vae_bf16.safetensors', keys), 'other')
 
     def test_embedded_models_of_a_users_workflow(self):
         wf = {'nodes': [{'type': 'UNETLoader', 'properties': {'models': [
@@ -325,6 +325,7 @@ const out = {
                  groups:[{id:'tutorial-1', label:'Tutorial step 1', state:'done', files:2, done_files:2, bytes:3e9, total_bytes:3e9}]}, 1001),
   inst: summarize({kind:'install', state:'running', steps:['a','b','c'], weights:[10,60,30], step:2, step_name:'c', started_at: 940, updated_at:1000}, 1000),
   stale: summarize({kind:'nodes', state:'running', done:1, total:4, updated_at: 1}, 1000),
+  nodes: summarize({kind:'nodes', state:'error', error:'Not installed: WAS', packs:['KJ','WAS'], pack_states:{KJ:'done', WAS:'error'}, updated_at: 1000}, 1000),
   legacy: summarize({state:'done', steps:['a','b'], step:2}, 1000).percent,
   b64: decodeDataUrl('data:application/json;base64,' + Buffer.from('{"é":1}').toString('base64')),
   files: [isProgressFile('C:\\X\\.comfy-recipe\\status.json'), isProgressFile('/x/.comfy-recipe/progress/downloads.json'),
@@ -345,6 +346,8 @@ console.log(JSON.stringify(out));
         self.assertAlmostEqual(out['inst']['percent'], 70)
         self.assertEqual([r['state'] for r in out['inst']['rows']], ['done', 'done', 'running'])
         self.assertEqual(out['stale']['state'], 'stalled')
+        self.assertEqual([r['state'] for r in out['nodes']['rows']], ['done', 'error'])
+        self.assertIn('WAS', out['nodes']['label'])
         self.assertEqual(out['legacy'], 100)
         self.assertEqual(out['b64'], '{"é":1}')
         self.assertEqual(out['files'], [True, True, False, False])

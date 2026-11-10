@@ -37,8 +37,9 @@ Prompt: `A quiet little café on a rainy street, rendered in delicate watercolor
 
 ## Visible use
 Briefly show the rewritten prompt, then use the session pane recipe to type it with `drive_preview`.
-Keep `refine_prompt` OFF: Hermes already enhanced the description. Do not download the optional enhancement model
-for this skill. Do not change prompts or controls through JSON, or substitute a headless API run.
+Keep `refine_prompt` OFF: Hermes already enhanced the description. The enhancement model file is still a
+required download (the window's Missing Models check blocks Run without it); it is fetched with the workflow's
+other models, but never switched on. Do not change prompts or controls through JSON, or substitute a headless API run.
 For CFG 1, the negative-prompt field is not an effective control: express essential constraints clearly in the
 positive paragraph rather than claiming an ignored negative field will enforce them.
 

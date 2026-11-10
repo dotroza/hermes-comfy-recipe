@@ -1,7 +1,14 @@
 # Reference assets
 
 This folder is for redistributable example media accompanying Comfy Recipe workflows.
-No images, character sheets or videos are bundled yet. Personal source media and cached previews are not examples.
+Personal source media and cached previews are not examples.
+
+## Bundled assets
+
+| Path | Role | Size | SHA-256 | Source / licence |
+|---|---|---|---|---|
+| `character-sheets/miskinou_sheet.png` | Character sheet of Miskinou, an orange mackerel tabby cat (11 views: face, profiles, back, sitting, standing, walking). Character reference for MiniMax H3 character swaps: `ref_image_2` / `<Picture 3>` (node 162) of `minimax-h3-r2v-mix`. | 1376 x 768 PNG | `4e8c7f988b32e93eeb6d49d3b09d0c4072d919e4e793138bba0fc3ccae70865c` | Supplied by the plugin author (Julien) for redistribution with Comfy Recipe; AI-generated sheet of his own cat. |
+| `images/placeholder.png` | Plain white 544 x 960 (9:16) placeholder. Keeps an optional Load Image valid when its input is switched off (ComfyUI validates every connected loader), e.g. node 151 (last-frame guide, `<Picture 2>`) of `minimax-h3-r2v-mix` when Use Last Frame is off. | 544 x 960 PNG | `3c6966dadfe102027b2f40832e58f29e0a42506a20c02e3b56fbc840de87a63e` | Supplied by the plugin author (Julien) for redistribution with Comfy Recipe; plain white image, no third-party content. |
 
 - `images/`: reference/starter images (PNG, JPEG or WebP).
 - `character-sheets/`: consistent multi-view/identity sheets (PNG, JPEG or WebP).

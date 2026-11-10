@@ -14,8 +14,37 @@ class StartupTabsTests(unittest.TestCase):
           const tabs = JSON.parse(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
           assert.equal(tabs.activeIndex, 0);
           assert.equal(tabs.paths[0], 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json');
-          assert.equal(tabs.paths.length, 6);
-          assert.equal(new Set(tabs.paths).size, 6);
+          assert.equal(tabs.paths.length, 5);
+          assert.deepEqual(new Set(tabs.paths), new Set([
+            'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json',
+            'workflows/Comfy Recipe/RCP_qwen_image_2_1_i2i.json',
+            'workflows/Comfy Recipe/RCP_audio_ace_step1_5_xl_base.json',
+            'workflows/Comfy Recipe/RCP_video_minimax_h3_r2v.json',
+            'workflows/Comfy Recipe/RCP_pixal3d_ImgTo3D.json'
+          ]));
+          assert.equal(JSON.parse(localStorage.getItem('Comfy.Workflow.LastActivePath:personal')).path, tabs.paths[0]);
+        """)
+
+    def test_empty_native_session_pointer_does_not_hide_fresh_tabs(self):
+        self.run_browser_check("""
+          const empty = JSON.stringify({workspaceId:'personal', paths:[], activeIndex:-1});
+          localStorage.setItem('Comfy.Workflow.LastOpenPaths:personal', empty);
+          sessionStorage.setItem('Comfy.Workflow.OpenPaths:fresh-client', empty);
+          extension.init();
+          // Native restore prefers sessionStorage to the localStorage fallback.
+          const tabs = JSON.parse(sessionStorage.getItem('Comfy.Workflow.OpenPaths:fresh-client') ||
+            localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
+          assert.equal(tabs.paths.length, 5);
+          assert.deepEqual(new Set(tabs.paths), new Set([
+            'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json',
+            'workflows/Comfy Recipe/RCP_qwen_image_2_1_i2i.json',
+            'workflows/Comfy Recipe/RCP_audio_ace_step1_5_xl_base.json',
+            'workflows/Comfy Recipe/RCP_video_minimax_h3_r2v.json',
+            'workflows/Comfy Recipe/RCP_pixal3d_ImgTo3D.json'
+          ]));
+          assert.equal(tabs.activeIndex, 0);
+          assert.equal(tabs.paths[0], 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json');
+          assert.equal(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'), JSON.stringify(tabs));
           assert.equal(JSON.parse(localStorage.getItem('Comfy.Workflow.LastActivePath:personal')).path, tabs.paths[0]);
         """)
 
@@ -54,6 +83,32 @@ class StartupTabsTests(unittest.TestCase):
           extension.init();
           assert.equal(localStorage.length, 0);
           assert.equal(sessionStorage.getItem('Comfy.Workflow.OpenPaths:old-client'), 'existing');
+        """)
+
+    def test_empty_bootstrap_pointers_never_override_real_work(self):
+        self.run_browser_check("""
+          for (const storage of [localStorage, sessionStorage]) {
+            for (const [key, value] of [
+              ['Comfy.Workflow.OpenPaths:client', '{"workspaceId":"personal","paths":["mine","other"],"activeIndex":1}'],
+              ['Comfy.Workflow.LastActivePath:personal', '{"workspaceId":"personal","path":"mine"}'],
+              ['Comfy.Workflow.Draft.v2:personal:draft', '{"data":"unsaved edits"}'],
+              ['Comfy.Workflow.DraftIndex.v2:personal', '{"order":[],"entries":{"draft":{"path":"mine"}}}'],
+              ['Comfy.Workflow.LastOpenPaths:team', '{"workspaceId":"team","paths":[],"activeIndex":-1}'],
+              ['Comfy.Workflow.OpenPaths:malformed', '{not json'],
+              ['Comfy.Workflow.OpenPaths:unknown', '{"paths":[]}']
+            ]) {
+              localStorage.data.clear(); sessionStorage.data.clear();
+              localStorage.setItem('Comfy.Workflow.LastOpenPaths:personal',
+                '{"workspaceId":"personal","paths":[],"activeIndex":-1}');
+              sessionStorage.setItem('Comfy.Workflow.OpenPaths:bootstrap',
+                '{"workspaceId":"personal","paths":[],"activeIndex":-1}');
+              storage.setItem(key, value);
+              const beforeLocal = [...localStorage.data], beforeSession = [...sessionStorage.data];
+              extension.init();
+              assert.deepEqual([...localStorage.data], beforeLocal, key);
+              assert.deepEqual([...sessionStorage.data], beforeSession, key);
+            }
+          }
         """)
 
     def test_second_launch_does_not_reselect_or_reorder(self):

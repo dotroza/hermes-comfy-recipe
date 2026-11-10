@@ -46,6 +46,7 @@ class InventoryBudgetTests(unittest.TestCase):
                      patch.object(onboarding_flow, 'managed_backend', return_value=inst), \
                      patch.object(core, '_object_info_path', return_value=info), \
                      patch.object(core.cc, 'get_json', side_effect=get_json), \
+                     patch('plugin.downloads.installed_packs', return_value=set()), \
                      patch.object(dependencies, 'cached_size_lookup', return_value=lambda url: None):
                     if route == 'onboarding':
                         first = onboarding_flow.reports()

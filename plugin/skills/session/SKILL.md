@@ -61,11 +61,23 @@ can run at the same time, e.g. on another port/GPU). The kickoff tells you the p
 
 ## Post-install setup and tutorial
 After a fresh managed installation opens in the pane, call `comfy_onboarding action=status` BEFORE the ordinary
-question. Ask ONE clarify form with independent choices for missing node packs now (recommended) vs on use, and
-missing models on use (recommended) vs now with verified missing-download GB. Skip categories already available;
-unknown sizes/inventory remain explicit. Settings require separate consent. Record submitted choices with
-`comfy_onboarding action=preferences nodes=now|on_use models=now|on_use`, perform only approved work visibly,
-recheck readiness, then call `comfy_onboarding action=tutorial` and load `comfy-recipe:first-image-tutorial`.
+question. Ask ONE clarify form with independent choices for missing node packs now (recommended) vs on use,
+missing models on use (recommended) vs now with verified missing-download GB, and - only when `proposal.settings` is
+not empty - a separate settings question (e.g. turn on Nodes 2.0). Skip categories already available; unknown
+sizes/inventory remain explicit. Then make ONE call:
+`comfy_onboarding action=preferences nodes=now|on_use models=now|on_use settings=apply|skip`.
+The plugin does the approved work itself and its `instruction` lists the remaining steps in order. With node packs
+approved they are always:
+1. Post each `progress_card` MEDIA line once (models and/or nodes).
+2. `comfy_downloads action=nodes_status wait_s=300`, repeated until `state=done` (pip dependencies take minutes).
+   Do NOT open the Nodes Manager, do NOT search packs there, do NOT click `Install All` - the packs are already queued.
+3. `comfy_setup action=restart` (one call). Never the Manager's `Apply Changes` button.
+4. `desktop_preview action=close`, then `action=open` with the same url (loads the new nodes and Nodes 2.0), then
+   select `Comfy Recipe/RCP_qwen_image_2_1_t2i.json` again.
+5. `comfy_onboarding action=status refresh=true` -> `proposal.node_packs` must be empty.
+6. `comfy_onboarding action=tutorial`, then load `comfy-recipe:first-image-tutorial`.
+`state=error` on the node card names the packs that failed: show it and offer one retry with
+`comfy_downloads action=install_nodes`. Settings only (no packs): step 4 is enough, no restart.
 Do not ask what the user wants to do until tutorial success, explicit skip, or the next distinct Recipe session.
 `/comfy tutorial` replays the first-image lesson at any time; “tutorial” and “skip tutorial” also work in Recipe chats.
 Only the first-image lesson exists. The reusable `comfy-recipe:qwen-image-2-1-prompting` skill writes prompts in
@@ -85,7 +97,9 @@ plugin's kickoff facts, do all steps:
 3. ONE `drive_preview {"action":"elements","max":5}` to confirm control; its result carries the page title
    `<workflow name> - ComfyUI` (leading `*` = unsaved edits). If refused ("only takes actions in the session the user
    is looking at"): ask the user to click into this chat, retry once.
-4. Report instance, GPU and active workflow. For fresh managed installs follow onboarding next_step above; for returning sessions use the normal ready card and wait.
+4. Report instance, GPU and active workflow. With `--cuda-device N` ComfyUI sees only that GPU as `cuda:0`: take
+   `cuda:N` from `argv`/`configured_gpu` and the VRAM from `devices[0]`. If the first `elements` call returns 0
+   elements while the title is just `ComfyUI` (still loading), use `desktop_preview read` for the active workflow. For fresh managed installs follow onboarding next_step above; for returning sessions use the normal ready card and wait.
 
 ## Procedure: work in the window
 Act as a graph-editing assistant: modify the user's current workflow in place by default.
@@ -103,20 +117,27 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
   overlay). Read the `delta` each click/type returns instead of re-scanning.
 - Prompt, numbers, seeds and Load Image files are ALWAYS changed in the window, never through the JSON. A widget that
   vanished after a view change is hidden by the zoom: `Nodes` tab → `Locate node on canvas` (pane-recipe step 2).
-- Make node and link edits visibly in the current graph when supported by the available pane controls.
-  `drive_preview` currently lacks a canvas-drag action; do not claim a wire was dragged when it was not.
-  If a required edit is unsupported, stop and explain the limitation. A wiring-only JSON fallback needs the user's
-  approval, a backup and preservation of the live unsaved state (`references/workflow-json-editing.md`); it is not
-  permission to fork or replace the current graph.
+- **Match the loaders to the media.** When the user supplies images/videos/audio, the graph must end up with exactly
+  one connected Load Image / Load Video / Load Audio per item: add the missing ones next to the existing loaders (same
+  column, free space), delete extras (select -> `Delete Selected Items`), connect each to the right socket
+  (`image_N`, `ref_image_N`, `ref_video_N` + `ref_video_audio_N`...). Never silently drop an attached file or leave a
+  stale loader wired. Procedure: `references/pane-recipe.md` §1b.
+- Adding/deleting nodes and setting values happen visibly in the window. `drive_preview` cannot drag, so a wire can
+  only be made through the API-mode wiring fallback (`references/workflow-json-editing.md`, "API-mode wiring"):
+  backup, save the tab from the window, edit only nodes/links on disk, close + reopen the tab, verify the sockets.
+  The user gave standing consent for this when it is used to add/delete/connect loaders; any other structural JSON
+  edit still needs their OK. It keeps the same workflow identity and is never permission to fork the graph. Never
+  claim a wire was dragged when it was not.
 
 ## Procedure: use the shared workflow library
 - Native skills stay in the plugin; a skill may use zero, one, or several shared workflow IDs. There is no separate
   recipe engine. Do not copy workflows into skill folders.
-- `comfy_workflows action=library` lists bundled IDs offline. Managed startup adds all six definitions to the
+- `comfy_workflows action=library` lists bundled IDs offline. Managed startup adds all five definitions to the
   `Comfy Recipe/` folder; dependencies are not installed by copying JSON.
 - Before using one, follow `references/workflow-library.md`: `comfy_workflows action=check`, then propose its
-  `setup_proposal` — ALL missing node packs, models and settings (e.g. Nodes 2.0) — in ONE clarify form; on OK do it
-  in the window (Issues → `Install All`, downloads, Settings switch), restart if packs were added, re-check. Preserve
+  `setup_proposal` — ALL missing node packs, models and settings (e.g. Nodes 2.0) — in ONE clarify form; on OK run
+  its `window_steps` in order (`comfy_downloads action=install_nodes`, `action=start`, `comfy_workflows
+  action=apply_settings`, `comfy_setup action=restart` if packs were added, reopen the pane), re-check. Preserve
   working copies and open/run visibly. A modified working copy is not certified by a preflight report about the
   bundled revision.
 
@@ -146,15 +167,28 @@ their workflows fits:
    `warning: Partial run` from comfy_run = some output nodes failed validation, the others still ran.
 4. Vision-check every output before reporting it. `comfy_workflows action=timings` before proposing speed changes.
 
+## Procedure: prepare input media
+`comfy_media` does trims, resizes, fps changes, first/last/Nth frame stills, N-second segments, joins and contact
+sheets with ffmpeg - outputs next to the source, probed back, `to_input=true` to place them in ComfyUI `input/`.
+Then reopen the pane once and pick the files visibly (pane-recipe §5). Long clips on 24 GB: `split seconds=3
+chained=true` (each segment starts on the previous one's last frame), run each segment in the MiniMax mix graph with the
+previous OUTPUT's `frames which=["last"]` as its first frame, then `join drop_first=1`. Full recipe, toggles and
+measured pitfalls: `references/minimax-h3-mix.md`.
+
 ## Procedure: diagnose a slow workflow
 See `references/performance-method.md`: per-stage breakdown from the ComfyUI log, VRAM vs model sizes, prompt
-enhancers running to their token cap, reference-image count, LoRA re-patching, model swapping.
+enhancers running to their token cap, reference-image count, LoRA re-patching, model swapping. Check the graph's own
+speed switches (Lightning LoRA, duration) first; video length is a hard cliff on 24 GB. Stuck job / stop-restart /
+free VRAM: `references/pane-pitfalls.md` ("Queue and stuck jobs").
 
 ## Rules
 - For an approved disk wiring edit, back up first, then modify the same workflow identity/path and report exactly
   which fields changed. A backup is recovery data, not a duplicate working tab. Routine edits stay in the current graph;
   separate working copies are reserved for substantial restructuring or an explicit user request.
-- Never start, restart or stop a ComfyUI yourself - except Comfy Recipe's own install, through `comfy_setup start/stop`.
+- Never start, restart or stop a ComfyUI yourself - except Comfy Recipe's own install, through `comfy_setup
+  start/stop/restart`. Never click the Nodes Manager's `Apply Changes`: it restarts outside the plugin's tracking.
+- Node packs and frontend settings are installed/applied by the plugin tools, never by hand in the Nodes Manager
+  or the Settings dialog (weak models get lost there: search needs bare words, refs renumber after each install).
 - Never save a tab (Ctrl+S) or close a tab with unsaved edits unless the user asks.
 - Verify results with real tool output (vision check, ffprobe) — never just "done".
 
@@ -164,3 +198,4 @@ enhancers running to their token cap, reference-image count, LoRA re-patching, m
 - `references/pane-pitfalls.md` — verified drive_preview behaviour on the ComfyUI frontend.
 - `references/workflow-json-editing.md` — layout-preserving UI-JSON edits (links, subgraph inputs, inserting nodes).
 - `references/performance-method.md` — how to find where the time goes and what to try first.
+- `references/minimax-h3-mix.md` — MiniMax H3 mix graph: first/last-frame toggles, placeholder, chained 3 s segments.

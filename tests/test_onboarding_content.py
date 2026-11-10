@@ -34,12 +34,18 @@ class OnboardingContentTests(unittest.TestCase):
         self.assertIn('refine_prompt',prompt)
         self.assertIn('Chez Léa',prompt)
 
-    def test_assets_structure_contains_no_reference_media_yet(self):
+    def test_bundled_reference_media_are_documented_with_hashes(self):
+        import hashlib
         root=ROOT/'assets'
-        self.assertTrue((root/'README.md').is_file())
+        readme=(root/'README.md').read_text(encoding='utf-8')
         for folder in ['images','character-sheets','motion-videos']:
             self.assertTrue((root/folder/'.gitkeep').is_file())
-        self.assertEqual([p.name for p in root.rglob('*') if p.is_file() and p.suffix.lower() in ['.png','.jpg','.mp4']],[])
+        media=[p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in ['.png','.jpg','.jpeg','.webp','.mp4']]
+        self.assertIn('character-sheets/miskinou_sheet.png',[p.relative_to(root).as_posix() for p in media])
+        for p in media:
+            with self.subTest(asset=p.name):
+                self.assertIn(f'`{p.relative_to(root).as_posix()}`',readme)
+                self.assertIn(hashlib.sha256(p.read_bytes()).hexdigest(),readme)
 
     def test_fresh_setup_copy_is_brief_and_keeps_t2i_visible(self):
         import plugin

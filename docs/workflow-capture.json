@@ -37,37 +37,31 @@
       "potential_secrets": 0
     },
     {
+      "file": "RCP_pixal3d_ImgTo3D.json",
+      "source_sha256": "5d847af87e2d771b824931b5baa09e0ba925bc05498e5f693b5c26819ff3019e",
+      "distributed_sha256": "c2c1cb430fb91d77ca389b09578cd2d8a3d06e23350a45cd1eb271e1ea6c8959",
+      "source_id": "d0b4973b-1318-5eca-9948-ba255691fc20",
+      "distributed_id": "d0b4973b-1318-5eca-9948-ba255691fc20",
+      "semantic_changes": [
+        "Re-captured user-saved simplified graph: SAM3Segment, Qwen CLIPLoader/TextGenerate and their routing removed; BiRefNet path preserved."
+      ],
+      "absolute_path_warnings": 0,
+      "potential_secrets": 0
+    },
+    {
       "file": "RCP_video_minimax_h3_r2v.json",
-      "source_sha256": "65feee4cfd3c6290a02a590b7e338da380227fc9ea13c85cbb1b65d5cb78f47e",
-      "distributed_sha256": "36466e8487e6df985727dbd9912999a2cfb9e032cbdbfa7215752308455f8db0",
-      "source_id": "e3f2b845-8f2c-4b5a-9caf-eac1029d3e7e",
-      "distributed_id": "d05d75f4-cc4b-576e-8cff-fb096ddd2f67",
+      "source_sha256": "fee11cf75153cd3cd3174062cd50410c37fbad0e1cb199a7a1142197d69797a1",
+      "distributed_sha256": "20fa6b5edb84d643166ea3fed4cdf147c2901a44782a8ef034a5f3908af7928b",
+      "source_id": "e168a7bd-bec6-4f36-8249-b26e45280ba5",
+      "distributed_id": "386c98f3-a7b6-5b65-afaf-0ab20c6edef6",
       "semantic_changes": [
-        "id"
+        "id",
+        "UNETLoader/CLIPLoader properties.models: stale int8 / 32B entries -> the w6a8 / 8B files the widgets load",
+        "Model-links note: lists the w6a8 diffusion model and the 8B encoder the graph actually loads",
+        "guide titles 'First frame: FoxMask kid' / 'Last frame: YellowCoat pose' -> 'First frame guide' / 'Last frame guide'",
+        "Asset renamed to RCP_video_minimax_h3_r2v.json; graph bytes and distributed identity preserved."
       ],
       "absolute_path_warnings": 0,
-      "potential_secrets": 0
-    },
-    {
-      "file": "RCP_video_minimax_h3_r2v_f2lf.json",
-      "source_sha256": "20ce8632208eec3a7c6566fc2cb8b04c4c1c855214e5fc9ab53d76be3e96e264",
-      "distributed_sha256": "daa0181b8d497659fb2a748058c5d7a22f05e72efc2b2c927c18c3788014ad8b",
-      "source_id": "e3f2b845-8f2c-4b5a-9caf-eac1029d3e7e",
-      "distributed_id": "b3a2c100-67f6-551c-843a-c67c9bbfd78f",
-      "semantic_changes": [
-        "id"
-      ],
-      "absolute_path_warnings": 0,
-      "potential_secrets": 0
-    },
-    {
-      "file": "RCP_wan21_scail-2_loop_cr_mt.json",
-      "source_sha256": "cdcce581f76881bfa6a3d41e7e5452eb3b9173c89d6f195b3e7b68d5537d3506",
-      "distributed_sha256": "1cd345867ebcaf6fbf6c1334afde6c614b511096ada4724e7e67351ca21fa01b",
-      "source_id": "8a7cc520-e245-5f33-bde3-fcf7aa11cde8",
-      "distributed_id": "8a7cc520-e245-5f33-bde3-fcf7aa11cde8",
-      "semantic_changes": [],
-      "absolute_path_warnings": 2,
       "potential_secrets": 0
     }
   ]

@@ -17,7 +17,7 @@ from pathlib import Path
 from . import core
 from . import templates
 from . import installer
-from . import library, dependencies, skill_registration, onboarding_flow, download_flow
+from . import library, dependencies, skill_registration, onboarding_flow, download_flow, media
 
 TOOLSET = "comfy_recipe"
 SKILL = "comfy-recipe:session"
@@ -73,17 +73,18 @@ def _onboarding_handler(params, *, session_id=None, task_id=None, **kwargs):
 SCHEMAS = {
     "comfy_onboarding": {
         "name": "comfy_onboarding",
-        "description": "Managed-install setup choices and the step-by-step tutorial (step 1/6 Generate your first image = text-to-image, step 2/6 Modify an image = image edit; steps 3-6 not built yet). status reports missing requirements and verified model download GB; preferences records explicit node/model choices (models=now queues every download, tutorial step 1 first). tutorial starts or continues a step (step=1|2, replay=true restarts, resume=true goes back to where the user left off) and queues that step's model downloads when the setup choice allows; begin_run=true snapshots history immediately before a visible Run. complete verifies an explicit prompt_id against backend image evidence; skip exits. Results may carry progress_card (a MEDIA line to post once). All runs stay visible through drive_preview. Session identity comes from runtime, not arguments.",
+        "description": "Managed-install setup choices and the step-by-step tutorial (step 1/6 Generate your first image = text-to-image, step 2/6 Modify an image = image edit; steps 3-6 not built yet). status reports missing requirements and verified model download GB; preferences records the submitted setup answers and DOES the approved work itself: nodes=now installs the missing node packs through ComfyUI-Manager (no window clicks), models=now queues every download (tutorial step 1 first), settings=apply turns on the proposed frontend settings (e.g. Nodes 2.0); its instruction lists the remaining steps in order (wait, comfy_setup restart, reopen pane). tutorial starts or continues a step (step=1|2, replay=true restarts, resume=true goes back to where the user left off) and queues that step's model downloads when the setup choice allows; begin_run=true snapshots history immediately before a visible Run. complete verifies an explicit prompt_id against backend image evidence; skip exits. Results may carry progress_card (a MEDIA line to post once). All runs stay visible through drive_preview. Session identity comes from runtime, not arguments.",
         "parameters": {"type": "object", "properties": {
             "action": {"type": "string", "enum": ["status", "preferences", "tutorial", "complete", "skip"]},
             "nodes": {"type": "string", "enum": ["now", "on_use"]},
             "models": {"type": "string", "enum": ["now", "on_use"]},
+            "settings": {"type": "string", "enum": ["apply", "skip"], "description": "preferences: the user's answer to the separate settings question (e.g. Nodes 2.0)"},
             "step": {"type": "integer", "enum": [1, 2], "description": "tutorial: which step (1 = first image, 2 = modify an image)"},
             "resume": {"type": "boolean", "description": "tutorial: go back to the tutorial where the user left off"},
             "workflow": {"type": "string", "description": "status: optional bundled workflow id for on-use readiness"},
             "workflow_path": {"type": "string", "description": "tutorial begin_run: exact selected saved path of this step's workflow, including any -v1.1.0 suffix; read it from the visible workflow selection"},
             "replay": {"type": "boolean"}, "begin_run": {"type": "boolean"},
-            "refresh": {"type": "boolean", "description": "status: recheck all six workflows after approved setup work"},
+            "refresh": {"type": "boolean", "description": "status: recheck all five workflows after approved setup work"},
             "prompt": {"type": "string", "description": "tutorial begin_run: exact enhanced text entered visibly; only a hash is stored"},
             "prompt_id": {"type": "string", "description": "complete: explicit id of the corresponding window run, not latest"}
         }, "required": ["action"], "additionalProperties": False},
@@ -98,11 +99,14 @@ SCHEMAS = {
                        "progress_card: post that MEDIA:<path> line ONCE on its own line, the desktop app shows a live "
                        "progress card + status-bar chip. action=status reads progress; action=wait group=tutorial-1|"
                        "tutorial-2 (wait_s up to 900) blocks until that group is ready; action=cancel stops queued files. "
-                       "action=watch_nodes packs=[names] mirrors ComfyUI-Manager's node-pack install queue into a progress "
-                       "card: call it right BEFORE clicking Install All in the window; nodes_status reads it. Models "
+                       "action=install_nodes (after consent; packs=[ids or names], omitted = every missing pack of the bundled "
+                       "workflows) installs node packs itself through ComfyUI-Manager's API - nothing to click, never search "
+                       "packs in the Nodes Manager - and returns a live card; action=nodes_status wait_s=300 blocks until done "
+                       "and says the next step (managed: comfy_setup action=restart). watch_nodes only mirrors an install "
+                       "someone started in the window. Models "
                        "without a download link are listed in models_without_url (never substitute similar files).",
         "parameters": {"type": "object", "properties": {
-            "action": {"type": "string", "enum": ["start", "status", "wait", "cancel", "watch_nodes", "nodes_status"]},
+            "action": {"type": "string", "enum": ["start", "status", "wait", "cancel", "install_nodes", "watch_nodes", "nodes_status"]},
             "workflow_ids": {"type": "array", "items": {"type": "string"}, "description": "start: bundled workflow IDs"},
             "workflow": {"type": "string", "description": "start: a saved workflow (name or path) whose missing models to fetch"},
             "models": {"type": "array", "items": {"type": "object", "properties": {
@@ -110,8 +114,8 @@ SCHEMAS = {
                 "size_bytes": {"type": "integer"}}, "required": ["folder", "name", "url"]},
                 "description": "start: explicit files (e.g. a check's setup_proposal.models)"},
             "group": {"type": "string", "description": "wait: tutorial-1 | tutorial-2 | other (omitted = everything)"},
-            "wait_s": {"type": "integer"},
-            "packs": {"type": "array", "items": {"type": "string"}, "description": "watch_nodes: pack names shown on the card"},
+            "wait_s": {"type": "integer", "description": "wait / nodes_status: max seconds to block (up to 900)"},
+            "packs": {"type": "array", "items": {"type": "string"}, "description": "install_nodes / watch_nodes: registry ids or names (setup_proposal.node_packs)"},
             "instance": {"type": "string", "description": "Optional ComfyUI instance (default: active)"}},
             "required": ["action"]},
     },
@@ -123,19 +127,20 @@ SCHEMAS = {
                        "download/install in the BACKGROUND (about 6 GB, 5-20 min) and returns at once. action=status "
                        "(wait_s up to 900) waits until the current step finishes and returns progress + log tail - call it "
                        "repeatedly until state is done or error. action=start starts the installed ComfyUI and waits until it "
-                       "answers (only ever this plugin's own install). action=stop stops it. action=use_existing = the user "
+                       "answers (only ever this plugin's own install). action=stop stops it. action=restart = stop + start + wait in ONE call "
+                       "(use it after node packs were installed; never the Manager's Apply Changes); then close + reopen the pane. action=use_existing = the user "
                        "prefers a ComfyUI they already have. action=check_dir dir=<path> checks a folder the user typed (writable, "
                        "free space, empty, not cloud-synced) before installing. action=reset forgets the choice (no files deleted). "
                        "action=adopt dir=<folder> uses an existing Comfy Recipe install again (after reset, or after the user "
                        "moved the folder: paths are fixed and the venv is checked; no download).",
         "parameters": {"type": "object", "properties": {
-            "action": {"type": "string", "enum": ["check", "check_dir", "install", "status", "start", "stop", "use_existing", "reset", "adopt"]},
+            "action": {"type": "string", "enum": ["check", "check_dir", "install", "status", "start", "stop", "restart", "use_existing", "reset", "adopt"]},
             "dir": {"type": "string", "description": "install / check_dir: folder for the new ComfyUI (default from check). adopt: existing install folder."},
             "allow_synced": {"type": "boolean", "description": "install: the user insists on a cloud-synced folder."},
             "gpu": {"type": ["integer", "string"], "description": "install: GPU index the user chose (required when check says ask_gpu)."},
             "share_models_from": {"type": "array", "items": {"type": "string"},
                                   "description": "install: names (from check.existing_installs) whose models the new ComfyUI may use."},
-            "wait_s": {"type": "integer", "description": "status/start: max seconds to wait."}},
+            "wait_s": {"type": "integer", "description": "status/start/restart: max seconds to wait."}},
             "required": ["action"]},
     },
     "comfy_instances": {
@@ -158,10 +163,12 @@ SCHEMAS = {
                        "action=check with workflow=<bundled stable ID> reports node/model/media/service/frontend-setting "
                        "requirements read-only (refresh=true by default) plus setup_proposal: ALL missing node packs, models "
                        "(link, folder, size) and settings (e.g. Nodes 2.0) to propose TOGETHER in one consent form. "
-                       "Copying JSON never installs nodes/models or runs jobs. After the one OK, do it in the visible "
-                       "window (Issues tab -> Install All, Settings) - skill comfy-recipe:session, workflow-library.md.",
+                       "Copying JSON never installs nodes/models or runs jobs. After the one OK: comfy_downloads "
+                       "action=install_nodes / action=start, and action=apply_settings workflow=<ID> writes the proposed "
+                       "frontend settings (e.g. Nodes 2.0) through the API (reopen the pane to see them) - skill "
+                       "comfy-recipe:session, workflow-library.md.",
         "parameters": {"type": "object", "properties": {
-            "action": {"type": "string", "enum": ["list", "describe", "timings", "library", "install", "check"]},
+            "action": {"type": "string", "enum": ["list", "describe", "timings", "library", "install", "check", "apply_settings"]},
             "workflow": {"type": "string", "description": "Workflow name or path fragment (describe / timings filter)."},
             "filter": {"type": "string", "description": "Substring filter for list/library."},
             "workflow_ids": {"type": "array", "items": {"type": "string"}, "description": "install: bundled IDs; omitted = all, [] = none."},
@@ -223,6 +230,34 @@ SCHEMAS = {
             "prompt_id": {"type": "string", "description": "A prompt_id from comfy_run, or 'latest'."},
             "wait_s": {"type": "integer"}, "instance": {"type": "string"}}, "required": ["prompt_id"]},
     },
+    "comfy_media": {
+        "name": "comfy_media",
+        "description": "Prepare video/image inputs with ffmpeg (no ComfyUI run). Outputs go NEXT TO THE SOURCE file and are "
+                       "probed back. action=probe (size, fps, frames, duration, audio); convert = one pass of trim "
+                       "(start/duration/end s) + resize (width/height, mode cover=crop|fit=pad|stretch) + fps; frames = "
+                       "PNG stills (which: 'first', 'last', frame index, or 't=<s>') e.g. for first/last-frame workflows; "
+                       "split = consecutive segments of `seconds` (e.g. 3 s chunks for MiniMax on 24 GB); join = "
+                       "concatenate clips (paths, normalised to the first clip, audio kept when all have it); sheet = "
+                       "tiled contact sheet for a visual check. to_input=true also copies results into the instance's "
+                       "input/ folder (reuses identical files, never overwrites different ones) and returns input_name; "
+                       "then close + reopen the pane and pick the file visibly in the Load node.",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["probe", "convert", "frames", "split", "join", "sheet"]},
+            "path": {"type": "string", "description": "Source file (all actions except join)."},
+            "paths": {"type": "array", "items": {"type": "string"}, "description": "join: clips in order."},
+            "start": {"type": "number"}, "duration": {"type": "number"}, "end": {"type": "number"},
+            "width": {"type": "integer"}, "height": {"type": "integer"}, "fps": {"type": "number"},
+            "mode": {"type": "string", "enum": ["cover", "fit", "stretch"], "description": "convert resize mode (default cover)."},
+            "which": {"type": "array", "items": {"type": ["string", "integer"]}, "description": "frames: default ['first','last']."},
+            "seconds": {"type": "number", "description": "split: segment length."},
+            "chained": {"type": "boolean", "description": "split: each segment starts on the previous segment's last frame (one shared frame) - for segment-by-segment generation that uses the previous output's last frame as first-frame guide."},
+            "drop_first": {"type": "integer", "description": "join: drop this many leading frames from every clip after the first (1 for chained segments)."},
+            "count": {"type": "integer"}, "columns": {"type": "integer"},
+            "out": {"type": "string", "description": "convert/join/sheet: optional output file (relative = next to source)."},
+            "out_dir": {"type": "string", "description": "frames/split: optional output folder."},
+            "to_input": {"type": "boolean", "description": "Also copy outputs into ComfyUI input/."},
+            "instance": {"type": "string"}}, "required": ["action"]},
+    },
 }
 
 
@@ -235,6 +270,19 @@ def _workflows(p: dict):
     if a == 'install':
         return library.publish(core._inst(p.get('instance')), core.DATA,
                                workflow_ids=p.get('workflow_ids'), versioned=bool(p.get('versioned')))
+    if a == 'apply_settings':
+        c = library.load_catalog()
+        entry = next((e for e in c['workflows'] if e['id'] == p.get('workflow')), None)
+        if entry is None:
+            raise ValueError('apply_settings requires an exact bundled workflow ID (action=library)')
+        inst = core._inst(p.get('instance'))
+        settings = core.cc.get_json(inst['url'], '/settings')
+        rows = [r for r in dependencies._settings_rows(entry.get('requirements') or {}, settings, None)
+                if r['status'] == 'needs_change']
+        if not rows:
+            return {'applied': [], 'note': 'Settings already match', 'instance': inst['name']}
+        return dict(core.apply_settings(inst['url'], [{'id': r['id'], 'value': r['value']} for r in rows]),
+                    instance=inst['name'], next='desktop_preview action=close, then action=open with the same url')
     if a == 'check':
         c = library.load_catalog()
         entry = next((e for e in c['workflows'] if e['id'] == p.get('workflow')), None)
@@ -249,7 +297,9 @@ def _workflows(p: dict):
                 settings, settings_error = None, 'Invalid /settings response'
         except Exception as exc:
             settings, settings_error = None, str(exc)
-        result = dependencies.check(inst, entry, wf, info, settings, settings_error, size_of=dependencies.remote_size)
+        packs = downloads.installed_packs(inst['url']) if (entry.get('requirements') or {}).get('frontend_nodes') else None
+        result = dependencies.check(inst, entry, wf, info, settings, settings_error,
+                                    size_of=dependencies.remote_size, installed_packs=packs)
         rel = library.FOLDER + '/' + Path(entry['file']).name
         result['definition']['path'] = rel
         result['definition']['scope'] = 'bundled_asset'
@@ -292,6 +342,8 @@ def _setup(p: dict):
         return core.setup_start(int(p.get("wait_s") or 180))
     if a == "stop":
         return core.setup_stop()
+    if a == "restart":
+        return core.setup_restart(int(p.get("wait_s") or 240))
     if a == "use_existing":
         return core.setup_use_existing()
     if a == "reset":
@@ -315,6 +367,7 @@ HANDLERS = {
     "comfy_run": lambda p: core.run(p["workflow"], p.get("prompt"), p.get("overrides"), p.get("images"), p.get("seed"),
                                     p.get("instance"), bool(p.get("dry_run"))),
     "comfy_result": lambda p: core.result(p["prompt_id"], int(p.get("wait_s", 600)), p.get("instance")),
+    "comfy_media": lambda p: media.handle(p, lambda name: Path(core._inst(name)["root"]) / "input"),
 }
 
 USAGE = ("/comfy tutorial [2] | /comfy downloads | /comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy library [install] | /comfy check <id> | /comfy setup | "
@@ -481,7 +534,7 @@ FIRST_RUN = (
     "workflows: drag a workflow .json (or an image made by ComfyUI) from your files into the ComfyUI window - the whole "
     "graph opens exactly as saved; save it with Ctrl+S to keep it in the Workflows list.'\n"
     "   Existing ComfyUI: comfy_setup action=use_existing, then follow its result (it may say no backend is running).\n"
-    "The six bundled workflow definitions are copied after startup; this does not install their dependencies. "
+    "The five bundled workflow definitions are copied after startup; this does not install their dependencies. "
     "Do not open the preview pane before ComfyUI runs. Base installation itself does not authorize extra nodes/models. "
     "Once the pane is open, open Comfy Recipe/RCP_qwen_image_2_1_t2i.json visibly in the Workflows sidebar before setup choices, "
     "even if this localhost origin restored a tab from an older installation. Preserve all other tabs and drafts. "
@@ -610,16 +663,23 @@ SESSION_RULES = (
     "input is missing, add a Load Image node and connect IMAGE to the Image Edit subgraph's image_2 (or next image_N) "
     "in that same graph. Duplicate only for substantial restructuring (many coordinated edits, including inside "
     "group/subgraph nodes), or when the user explicitly asks for a copy. Explain a substantial fork first. Missing "
-    "inputs and unsaved edits are not a reason to duplicate. Preserve live unsaved state; if available visible controls "
-    "cannot perform a node/link edit, explain the limitation rather than switching graphs. A wiring-only disk fallback "
-    "requires user approval and a backup of current state, retaining the same workflow identity. Never change values via "
+    "inputs and unsaved edits are not a reason to duplicate. Preserve live unsaved state. Match the graph's Load "
+    "Image/Load Video/Load Audio nodes to the media I give: add the missing ones next to the existing loaders, delete "
+    "extras, and connect them (image_N, ref_image_N, ref_video_N...). drive_preview cannot drag wires: when a link cannot "
+    "be made in the window, use the API-mode wiring fallback of references/workflow-json-editing.md (backup, save the "
+    "tab from the window, edit only nodes/links on disk, close + reopen the tab, verify the sockets), keeping the same "
+    "workflow identity - this standing consent covers loader add/delete/connect only. Never change values via "
     "workflow JSON. Never click Fit View to find a node: zoomed out, ComfyUI hides the textareas and file buttons - use "
     "the right panel's Nodes tab -> 'Locate node on canvas' instead. Never use browser_* tools (a different, invisible "
     "browser). If drive_preview says no window answered, ask me to click into this chat and wait. "
     "If I ask for the tutorial (start, replay, continue, go back to it), call comfy_onboarding action=tutorial "
     "(resume=true to continue, step=2 for 'Modify an image'). If I bring my own workflow and ask to install its "
     "dependencies: comfy_workflows describe/check, ONE consent form, then comfy_downloads action=start workflow=<path> for "
-    "models (post its progress_card once) and comfy_downloads action=watch_nodes right before Install All for node packs."
+    "models (post its progress_card once); node packs of that open graph: comfy_downloads action=watch_nodes, then the "
+    "Issues tab's Install All (one click, it lists every missing pack of the open graph; never search packs one by one in "
+    "the Nodes Manager), then comfy_downloads action=nodes_status wait_s=300 and comfy_setup action=restart. Bundled "
+    "workflows: comfy_downloads action=install_nodes instead (no window clicks). Settings such as Nodes 2.0: "
+    "comfy_workflows action=apply_settings, never by hand. Never click the Manager's Apply Changes."
 )
 
 

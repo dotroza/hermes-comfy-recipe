@@ -7,7 +7,8 @@ Keep the user's organised graph (groups, notes, subgraphs, positions). Never con
   edit of that graph, not a reason to open a different workflow.
 - Duplicate only for substantial restructuring (many coordinated changes including group/subgraph internals), or when
   the user explicitly asks. Explain a substantial fork first. Only an intentional separate copy gets a new UUID.
-- Prefer supported visible node/link controls. A disk wiring fallback requires explicit user approval. Before using
+- Prefer supported visible node/link controls. A disk wiring fallback requires explicit user approval, except the
+  standing consent below for matching loaders to the user's media ("API-mode wiring"). Before using
   it, preserve the live unsaved graph state; the last saved JSON is not a substitute for the active dirty tab. If live
   state cannot be safely preserved with the available tools, stop and explain the limitation and ask how to proceed.
   Do not auto-save, discard edits, or duplicate a saved/bundled graph as a workaround.
@@ -22,6 +23,22 @@ Keep the user's organised graph (groups, notes, subgraphs, positions). Never con
 - The open tab does not automatically adopt disk edits. After the approved fallback, reopen the same workflow only
   with the user's agreement and after preserving unsaved state; verify the actual node and connection in the pane.
   Closing/reopening the pane alone is not proof that the new wiring replaced its cached graph.
+
+## API-mode wiring (loaders to the user's media) — verified procedure
+Standing user consent: when the request needs more/fewer Load Image / Load Video / Load Audio nodes than the graph has
+connected, add/delete them and wire them through the file without asking again. Values are still set in the window.
+1. Back up the current disk file to `<install>/.comfy-recipe/backups/<name>.disk-before-save.<ts>.json`.
+2. Save the LIVE tab from the window: `Menu` -> hover `File` -> `Save` (title loses `*`). This is how the unsaved
+   state is preserved; back up the saved file too (`<name>.live-saved.<ts>.json`).
+3. Read the saved graph (it is the truth, not the bundled file): loaders, their `pos`/`size`, the target node's inputs.
+4. Edit only nodes and links: remove the extra loader and its links (clear the target input's `link`), add the new
+   loader where the removed one stood or in the loaders' column, append links, set target `link` and source `links`,
+   bump `last_node_id` / `last_link_id`. Give the new node schema-default widget values only (`GET <url>/object_info/
+   <type>` for outputs/inputs); VHS nodes take a dict `widgets_values`. Real file/number values are chosen visibly.
+5. Close the clean tab (`close-workflow-button`), reopen it from the Workflows sidebar, verify each socket connected
+   (`pane-recipe.md` §1b.1), then set media/prompt/numbers in the window and Run.
+Example (MiniMax H3 r2v): `VHS_LoadVideo` outputs `IMAGE`(0) -> `ref_videos.ref_video_0`, `audio`(2) ->
+`ref_video_audios.ref_video_audio_0`; LoadImage `IMAGE` -> `ref_images.ref_image_N`.
 
 ## Formats
 - Top-level links: arrays `[id, origin_id, origin_slot, target_id, target_slot, type]`.

@@ -20,12 +20,13 @@ where the time goes.
 | `comfy_templates` | Searches ComfyUI's ~650 built-in templates for what you want to make and proposes the best ones with thumbnail, inputs, download size and **readiness** (installed vs missing models with download links, missing custom nodes). Ready ones rank first. Opens them in the window or saves a copy to your workflows. |
 | `comfy_run` | **Headless** run of a saved UI workflow with prompt / seed / images / widget overrides. Converted to API format in memory; jobs are identical, input by input, to what the ComfyUI frontend sends. |
 | `comfy_result` | Waits for a job and returns per-stage timing (sampling, prompt enhancer, loading/patching overhead, cache hits, hints), output files, and for videos a contact sheet + audio level. `prompt_id: "latest"` also reads jobs started with Run in the window. |
+| `comfy_media` | Prepares inputs with ffmpeg, next to the source file: `probe`, `convert` (trim + resize cover/fit/stretch + fps in one pass), `frames` (first / last / index / time as PNG, e.g. for first-last-frame workflows), `split` (N-second segments), `join` (concatenate with audio), `sheet` (contact sheet). `to_input: true` copies results into ComfyUI `input/`, reusing identical files. |
 | `/comfy status \| switch \| workflows \| templates <query> \| setup \| run` | Quick control from any chat. |
 | Skill `comfy-recipe:session` | The recipe and verified pitfalls for driving ComfyUI in the pane, layout-preserving workflow JSON edits, and a method for finding slow stages. |
 
 ## Shared workflows and native skills
 
-Six RCP workflow definitions ship with the plugin and are added to the managed instance's **Workflows → Comfy Recipe**
+Five RCP workflow definitions ship with the plugin and are added to the managed instance's **Workflows → Comfy Recipe**
 folder after startup. User copies are never overwritten; dependencies can be installed after setup or on demand, with consent.
 Native Hermes skills stay in `plugin/skills/` and may reference zero, one or multiple shared workflow IDs. There is no
 separate recipe engine or registry. See [the workflow-library guide](docs/WORKFLOW_LIBRARY.md) for authoring and updates.
@@ -87,7 +88,7 @@ plugin/
   library.py            shared catalog + protected working-copy publication
   dependencies.py       read-only workflow requirements and Manager installation guidance
   skill_registration.py native skill discovery + optional workflow ID references
-  workflows/            six versioned UI-format JSON assets + catalog.json
+  workflows/            five versioned UI-format JSON assets + catalog.json
   comfy_client.py       stdlib HTTP client for the ComfyUI API
   convert_bridge.py     UI→API conversion via comfy-cli + two fixes it needs (subgraph socket values, viewer nodes)
   desktop/plugin.js     desktop half: sidebar entry + "New ComfyUI session"
