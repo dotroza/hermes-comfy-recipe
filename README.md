@@ -9,8 +9,18 @@ opens, ComfyUI appears in the preview pane on the right, and the agent opens wor
 *by hand* while you watch — or step in yourself to show it what you mean. Bundled skills give the agent
 a step-by-step recipe for visible work (including testing with a local 27B model).
 
-It can also run your **saved UI workflows headless** (subgraphs included, your `.json` is never rewritten) and tell you
-where the time goes.
+You can also run saved ComfyUI workflows in the background, including workflows with subgraphs. Comfy Recipe converts
+them in memory, leaves your original `.json` files unchanged, and reports how long each stage of a run takes.
+
+## Screenshots
+
+A visible Comfy Recipe session inside Hermes: generate an image, refine the framing, and create a multi-view pet sheet.
+
+![Comfy Recipe generating a realistic cat in a visible Hermes and ComfyUI session](docs/screenshots/visible-session-cat-generation.png)
+
+![Comfy Recipe editing the generated cat image to show its full body](docs/screenshots/visible-session-image-editing.png)
+
+![Comfy Recipe creating a multi-view pet sheet in ComfyUI](docs/screenshots/visible-session-pet-sheet.png)
 
 ## What you get
 
