@@ -21,7 +21,7 @@ where the time goes.
 | `comfy_onboarding` | Managed-install setup preferences and the four-step tutorial: start, resume, replay, skip and verify a fresh run. Supplies bundled reference-sheet layouts for people, pets, objects, outdoor places and interiors. |
 | `comfy_downloads` | Resumable background model downloads with live chat progress cards and a status-bar chip; start / status / wait / cancel, plus approved node-pack installation through ComfyUI-Manager's API and installed-state checks. Supports bundled workflows, saved workflows with declared model links, and explicit model lists. |
 | **Comfy Recipe** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin itself finds the running ComfyUI and opens it in the pane at the start of the turn (no model round trips), then the agent reports instance, GPU and active workflow. The session is named after your first real request. |
-| `comfy_instances` | With its own install: only that one (isolated from your other ComfyUIs). With *use existing*: finds StabilityMatrix (incl. portable), ComfyUI Desktop, servers on ports 8188–8190 / 8000 and any `extra_urls`; switches automatically if the remembered one is down and exactly one other is running; if none is running it asks you to start yours. |
+| `comfy_instances` | With its own install: only that one (isolated from your other ComfyUIs). With *use existing*: finds ComfyUI Desktop, servers on ports 8188–8190 / 8000 and any `extra_urls`; switches automatically if the remembered one is down and exactly one other is running; if none is running it asks you to start yours. |
 | `comfy_workflows` | Lists saved workflows, describes one (subgraph controls, Load Image nodes, prompt target), shows measured timings. |
 | `comfy_templates` | Searches ComfyUI's built-in templates for what you want to make and proposes the best ones with thumbnail, inputs, download size and **readiness** (installed vs missing models with download links, missing custom nodes). Ready ones rank first. Opens them in the window or saves a copy to your workflows. |
 | `comfy_run` | **Headless** run of a saved UI workflow with prompt / seed / images / widget overrides. Converted to API format in memory; jobs are identical, input by input, to what the ComfyUI frontend sends. |
@@ -115,7 +115,6 @@ Requirements
 | `personal_skill` | — | Your own ComfyUI skill (paths, workflow catalog, model notes), loaded in every session after the generic one. |
 | `motto` | — | Text shown after `[ComfyUI session]` when a session opens. |
 | `extra_urls` | `[]` | ComfyUI servers on other ports, e.g. `["http://127.0.0.1:8283"]`. |
-| `stabilitymatrix_dirs` | `[]` | Portable StabilityMatrix data folders (learned automatically once seen running). |
 | `converter_python` | auto | A Python with comfy-cli, if auto-detection misses it. |
 | `stop_with_hermes` | `true` | Stop Comfy Recipe's own ComfyUI when Hermes is closed (frees GPU memory). Off = keep it running in the background. |
 
@@ -162,7 +161,7 @@ workflow or provider. Installation, model downloads and paid runs need their own
 tools, hooks and skill registration require a full Hermes restart after updates; a new chat is not a reload.
 
 
-Developed on Windows 11 with ComfyUI 0.44 / frontend 1.57 and a portable StabilityMatrix on a 2-GPU machine. The
+Developed on Windows 11 with ComfyUI 0.44 / frontend 1.57 on a 2-GPU machine. The
 visible-session flow was proven in the Hermes desktop app in the predecessor plugin; this generic version's core
 functions are tested standalone and the in-app session was verified (sidebar entry, session card, settings). Other platforms are coded for (paths per OS)
 but not yet verified — reports welcome.
