@@ -1,8 +1,8 @@
-# Comfy Recipe — a Hermes Agent plugin for ComfyUI
-
 ![Comfy Recipe — chef cat icon](plugin/assets/images/comfy-recipe-icon.png)
 
-**The agent works in your ComfyUI window, next to the chat.** Click **Comfy Recipe** in the Hermes sidebar: a new chat
+# Comfy Recipe — a Hermes Agent plugin for ComfyUI
+
+**The agent brings a ComfyUI inside Hermes, next to the chat.** Click **Comfy Recipe** in the Hermes sidebar: a new chat
 opens, ComfyUI appears in the preview pane on the right, and the agent opens workflows, types prompts and clicks Run
 *by hand* while you watch — or step in yourself to show it what you mean. Bundled skills give the agent
 a step-by-step recipe for visible work (including testing with a local 27B model).
