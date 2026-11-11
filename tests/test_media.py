@@ -81,6 +81,36 @@ class MediaTests(unittest.TestCase):
         r = media.sheet(str(self.src), count=8, columns=4)
         self.assertTrue(Path(r["path"]).is_file())
 
+    def test_still_image_convert_stays_a_png(self):
+        png = self.dir / "still.png"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=1679x937", "-frames:v", "1",
+                        str(png)], check=True)
+        r = media.convert(str(png), width=1376, height=768, mode="stretch", out="still_1376x768.png")
+        o = Path(r["output"]["path"])
+        self.assertEqual(o.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual((r["output"]["width"], r["output"]["height"]), (1376, 768))
+        with self.assertRaises(ValueError):
+            media.convert(str(png), duration=2)
+        with self.assertRaises(ValueError):
+            media.convert(str(png), width=100, out="still.mp4")
+
+    def test_mux_mixes_under_existing_sound_or_becomes_the_soundtrack(self):
+        silent, music = self.dir / "silent.mp4", self.dir / "music.mp3"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=24:duration=3",
+                        "-pix_fmt", "yuv420p", str(silent)], check=True)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=220:duration=1.5",
+                        str(music)], check=True)
+        r = media.mux(str(silent), str(music))
+        self.assertEqual((r["mode"], r["music_volume"]), ("soundtrack", 1.0))
+        self.assertTrue(r["output"]["has_audio"])
+        self.assertAlmostEqual(r["output"]["duration_s"], 3.0, delta=0.1)
+        self.assertTrue(r["output"]["path"].endswith("silent_with_sound.mp4"))
+        r = media.handle({"action": "mux", "path": str(self.src), "audio": str(music), "out": "clip_mixed.mp4"})
+        self.assertEqual((r["mode"], r["music_volume"]), ("mix", 0.5))
+        self.assertAlmostEqual(r["output"]["duration_s"], media.probe(self.src)["duration_s"], delta=0.1)
+        with self.assertRaises(ValueError):
+            media.mux(str(silent), str(silent))
+
     def test_copy_to_input_reuses_identical_and_never_overwrites(self):
         inp = self.dir / "input"
         a = media.copy_to_input(self.src, inp)

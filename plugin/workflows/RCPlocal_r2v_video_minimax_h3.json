@@ -1,8 +1,8 @@
 {
   "id": "386c98f3-a7b6-5b65-afaf-0ab20c6edef6",
   "revision": 0,
-  "last_node_id": 162,
-  "last_link_id": 336,
+  "last_node_id": 165,
+  "last_link_id": 339,
   "nodes": [
     {
       "id": 92,
@@ -215,10 +215,10 @@
         }
       },
       "widgets_values": [
-        "## MiniMax H3\n\n[MiniMax H3](https://www.minimax.io/blog/minimax-h3) is MiniMax's general-purpose, omni-modal generation model. It jointly understands text, image, video, and audio, and generates video with **native stereo audio**: voice, sound effects, and music are modeled jointly in a single forward pass, not layered on afterward. Output is up to 2K resolution, 24fps, and up to about 15 seconds.\n\n## ComfyUI links\n- [ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)\n- [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n## About this workflow\n\nThis template runs the **reference-to-video (ref2va)** task using the `MiniMaxH3ReferenceToVideo` node. It takes any mix of reference images, videos, and standalone audio, and weaves them into the generation to lock in a character's identity, a style, a motion, a camera move, or a voice.\n\n**Key inputs**\n\n- **ref_images / ref_videos / ref_video_audios / ref_audios**: up to 9 reference images, 3 reference videos (each may carry its own paired soundtrack), and 3 standalone reference audio clips\n- **prompt**: reference the inputs by tag, in the exact order they were connected, for example `<Picture 1>`, `<Video 1>`, `<Audio 1>`, then describe the target scene, motion, and audio\n- **ref_image_size**: `match` scales references down to the generation's resolution (faster); `max` keeps up to a 2048px short edge for stronger identity fidelity, at the cost of speed since reference tokens ride along every sampling step\n- **width / height**: set via Resolution Selector.\n- **duration (seconds)**: converted to a valid frame `length` by the Math Expression node\n\n**Sampling and decode**\n\n- Sampler: `res_multistep`. `beta` or `normal` scheduler tends to outperform `simple` for reference-heavy prompts like this one\n- The sampler's joint audio+video `LATENT` output feeds directly into both `VAEDecode` (video, `minimax_h3_video_vae_int8_convrot`) and `VAEDecodeAudio` (audio, `minimax_h3_audio_vae_fp32`); each decode node automatically pulls its own half out of the packed latent. `CreateVideo` then muxes the two into a single MP4 with synced sound\n- The diffusion model here is `minimax_h3_ref2va_pruned_int8_convrot.safetensors`, a different set of weights from the `fl2va` model used by the t2v/i2v templates\n\nRef2va's output is very sensitive to prompt wording; matching the reference tags precisely and being explicit about which reference drives which part of the shot tends to work best."
+        "## MiniMax H3\n\n[MiniMax H3](https://www.minimax.io/blog/minimax-h3) is MiniMax's general-purpose, omni-modal generation model. It jointly understands text, image, video, and audio, and generates video with **native stereo audio**: voice, sound effects, and music are modeled jointly in a single forward pass, not layered on afterward. Output is up to 2K resolution, 24fps, and up to about 15 seconds.\n\n## ComfyUI links\n- [ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)\n- [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n## About this workflow\n\nThis template runs the **reference-to-video (ref2va)** task using the `MiniMaxH3ReferenceToVideo` node. It takes any mix of reference images, videos, and standalone audio, and weaves them into the generation to lock in a character's identity, a style, a motion, a camera move, or a voice.\n\n**Key inputs**\n\n- **ref_images / ref_videos / ref_video_audios / ref_audios**: up to 9 reference images, 3 reference videos (each may carry its own paired soundtrack), and 3 standalone reference audio clips\n- **prompt**: reference the inputs by tag, in the exact order they were connected, for example `<Picture 1>`, `<Video 1>`, `<Audio 1>`, then describe the target scene, motion, and audio\n- **ref_image_size**: `match` scales references down to the generation's resolution (faster); `max` keeps up to a 2048px short edge for stronger identity fidelity, at the cost of speed since reference tokens ride along every sampling step\n- **width / height**: set via Resolution Selector.\n- **duration (seconds)**: converted to a valid frame `length` by the Math Expression node\n\n**Sampling and decode**\n\n- Sampler: `res_multistep`. `beta` or `normal` scheduler tends to outperform `simple` for reference-heavy prompts like this one\n- The sampler's joint audio+video `LATENT` output feeds directly into both `VAEDecode` (video, `minimax_h3_video_vae_int8_convrot`) and `VAEDecodeAudio` (audio, `minimax_h3_audio_vae_fp32`); each decode node automatically pulls its own half out of the packed latent. `CreateVideo` then muxes the two into a single MP4 with synced sound\n- The diffusion model here is `minimax_h3_ref2va_pruned_w6a8.safetensors`, a different set of weights from the `fl2va` model used by the t2v/i2v templates\n\nRef2va's output is very sensitive to prompt wording; matching the reference tags precisely and being explicit about which reference drives which part of the shot tends to work best."
       ],
       "widgets_values_named": {
-        "text": "## MiniMax H3\n\n[MiniMax H3](https://www.minimax.io/blog/minimax-h3) is MiniMax's general-purpose, omni-modal generation model. It jointly understands text, image, video, and audio, and generates video with **native stereo audio**: voice, sound effects, and music are modeled jointly in a single forward pass, not layered on afterward. Output is up to 2K resolution, 24fps, and up to about 15 seconds.\n\n## ComfyUI links\n- [ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)\n- [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n## About this workflow\n\nThis template runs the **reference-to-video (ref2va)** task using the `MiniMaxH3ReferenceToVideo` node. It takes any mix of reference images, videos, and standalone audio, and weaves them into the generation to lock in a character's identity, a style, a motion, a camera move, or a voice.\n\n**Key inputs**\n\n- **ref_images / ref_videos / ref_video_audios / ref_audios**: up to 9 reference images, 3 reference videos (each may carry its own paired soundtrack), and 3 standalone reference audio clips\n- **prompt**: reference the inputs by tag, in the exact order they were connected, for example `<Picture 1>`, `<Video 1>`, `<Audio 1>`, then describe the target scene, motion, and audio\n- **ref_image_size**: `match` scales references down to the generation's resolution (faster); `max` keeps up to a 2048px short edge for stronger identity fidelity, at the cost of speed since reference tokens ride along every sampling step\n- **width / height**: set via Resolution Selector.\n- **duration (seconds)**: converted to a valid frame `length` by the Math Expression node\n\n**Sampling and decode**\n\n- Sampler: `res_multistep`. `beta` or `normal` scheduler tends to outperform `simple` for reference-heavy prompts like this one\n- The sampler's joint audio+video `LATENT` output feeds directly into both `VAEDecode` (video, `minimax_h3_video_vae_int8_convrot`) and `VAEDecodeAudio` (audio, `minimax_h3_audio_vae_fp32`); each decode node automatically pulls its own half out of the packed latent. `CreateVideo` then muxes the two into a single MP4 with synced sound\n- The diffusion model here is `minimax_h3_ref2va_pruned_int8_convrot.safetensors`, a different set of weights from the `fl2va` model used by the t2v/i2v templates\n\nRef2va's output is very sensitive to prompt wording; matching the reference tags precisely and being explicit about which reference drives which part of the shot tends to work best."
+        "text": "## MiniMax H3\n\n[MiniMax H3](https://www.minimax.io/blog/minimax-h3) is MiniMax's general-purpose, omni-modal generation model. It jointly understands text, image, video, and audio, and generates video with **native stereo audio**: voice, sound effects, and music are modeled jointly in a single forward pass, not layered on afterward. Output is up to 2K resolution, 24fps, and up to about 15 seconds.\n\n## ComfyUI links\n- [ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)\n- [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)\n\n## About this workflow\n\nThis template runs the **reference-to-video (ref2va)** task using the `MiniMaxH3ReferenceToVideo` node. It takes any mix of reference images, videos, and standalone audio, and weaves them into the generation to lock in a character's identity, a style, a motion, a camera move, or a voice.\n\n**Key inputs**\n\n- **ref_images / ref_videos / ref_video_audios / ref_audios**: up to 9 reference images, 3 reference videos (each may carry its own paired soundtrack), and 3 standalone reference audio clips\n- **prompt**: reference the inputs by tag, in the exact order they were connected, for example `<Picture 1>`, `<Video 1>`, `<Audio 1>`, then describe the target scene, motion, and audio\n- **ref_image_size**: `match` scales references down to the generation's resolution (faster); `max` keeps up to a 2048px short edge for stronger identity fidelity, at the cost of speed since reference tokens ride along every sampling step\n- **width / height**: set via Resolution Selector.\n- **duration (seconds)**: converted to a valid frame `length` by the Math Expression node\n\n**Sampling and decode**\n\n- Sampler: `res_multistep`. `beta` or `normal` scheduler tends to outperform `simple` for reference-heavy prompts like this one\n- The sampler's joint audio+video `LATENT` output feeds directly into both `VAEDecode` (video, `minimax_h3_video_vae_int8_convrot`) and `VAEDecodeAudio` (audio, `minimax_h3_audio_vae_fp32`); each decode node automatically pulls its own half out of the packed latent. `CreateVideo` then muxes the two into a single MP4 with synced sound\n- The diffusion model here is `minimax_h3_ref2va_pruned_w6a8.safetensors`, a different set of weights from the `fl2va` model used by the t2v/i2v templates\n\nRef2va's output is very sensitive to prompt wording; matching the reference tags precisely and being explicit about which reference drives which part of the shot tends to work best."
       },
       "color": "#222",
       "bgcolor": "#000"
@@ -935,11 +935,11 @@
         }
       },
       "widgets_values": [
-        366757893609686,
+        1055603704842649,
         "randomize"
       ],
       "widgets_values_named": {
-        "noise_seed": 366757893609686,
+        "noise_seed": 1055603704842649,
         "control_after_generate": "randomize"
       }
     },
@@ -1247,18 +1247,11 @@
           "name": "ref_images.ref_image_2",
           "shape": 7,
           "type": "IMAGE",
-          "link": 336
+          "link": 339
         },
         {
           "localized_name": "ref_image_3",
           "name": "ref_images.ref_image_3",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": null
-        },
-        {
-          "localized_name": "ref_image_4",
-          "name": "ref_images.ref_image_4",
           "shape": 7,
           "type": "IMAGE",
           "link": null
@@ -1272,23 +1265,30 @@
           "link": 306
         },
         {
+          "localized_name": "ref_video_1",
+          "name": "ref_videos.ref_video_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "localized_name": "ref_video_2",
+          "name": "ref_videos.ref_video_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
           "label": "ref_video_audio_0",
           "localized_name": "ref_video_audio_0",
           "name": "ref_video_audios.ref_video_audio_0",
           "shape": 7,
           "type": "AUDIO",
-          "link": null
+          "link": 338
         },
         {
           "localized_name": "ref_video_audio_1",
           "name": "ref_video_audios.ref_video_audio_1",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "localized_name": "ref_video_audio_2",
-          "name": "ref_video_audios.ref_video_audio_2",
           "shape": 7,
           "type": "AUDIO",
           "link": null
@@ -1304,13 +1304,6 @@
         {
           "localized_name": "ref_audio_1",
           "name": "ref_audios.ref_audio_1",
-          "shape": 7,
-          "type": "AUDIO",
-          "link": null
-        },
-        {
-          "localized_name": "ref_audio_2",
-          "name": "ref_audios.ref_audio_2",
           "shape": 7,
           "type": "AUDIO",
           "link": null
@@ -1361,10 +1354,17 @@
           "link": null
         },
         {
-          "localized_name": "ref_video_1",
-          "name": "ref_videos.ref_video_1",
+          "localized_name": "ref_audio_2",
+          "name": "ref_audios.ref_audio_2",
           "shape": 7,
-          "type": "IMAGE",
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "localized_name": "ref_video_audio_2",
+          "name": "ref_video_audios.ref_video_audio_2",
+          "shape": 7,
+          "type": "AUDIO",
           "link": null
         }
       ],
@@ -1466,10 +1466,10 @@
         }
       },
       "widgets_values": [
-        "Continue the scene: start exactly on the supplied first-frame image <Picture 1>, the gigantic orange tabby cat lying on the road beside the sidewalk with the businessman next to it. Recreate the action of <Video 1> shot for shot, replacing only the giant calico cat with this same orange tabby cat, whose identity must match the character sheet <Picture 3>. <Picture 2> is a blank white placeholder: ignore it completely.Action: the man in a dark suit walks up to the lying giant cat, puts his hands on its fur and climbs up onto its back, sits astride it and turns to wave cheerfully at the camera with one hand. The giant cat then rises onto its paws and starts to walk away down the road carrying the man on its back. Static, slightly low handheld camera; night city street lined with lit apartment buildings and street lamps, same as <Picture 1>.The cat must match the references exactly: warm ginger-orange coat with darker orange mackerel tabby stripes, cream-white chin and chest, pink nose, round amber-green eyes, upright pointed ears, ringed striped tail. No calico white or black patches. Photorealistic fur lit by the orange street lights, realistic scale and weight.Audio: quiet night city ambience, distant traffic, rustle of fur, the man's short happy laugh, soft heavy paw steps."
+        "Use <Video 1> only for the dance choreography, tempo, motion timing, camera movement/framing, lighting, and source audio; do not copy the human dancer’s identity. Use <Picture 1> as the exact opening-frame guide and <Picture 2> as the exact final-frame guide: begin matching Picture 1’s pose and framing, follow Video 1’s dance continuously with no cuts, then transition naturally to finish matching Picture 2’s full-body pose and framing. Maintain one consistent orange-tabby dancer throughout: the same striped orange head, amber eyes, white muzzle, and orange fur on both arms. Preserve the white shirt, black vest and tie, black trousers, metallic gold gloves, beige hallway, door, floor, shadows, and lighting. No identity drift, flicker, morphing, extra limbs, or costume/scene changes. The reference images contain screen overlays: ignore them and do not render any CapCut logo, watermark, play icon, view count, “Bisou” label, captions, or other UI/text. Preserve the source audio from <Video 1>; add no dialogue or music."
       ],
       "widgets_values_named": {
-        "value": "Continue the scene: start exactly on the supplied first-frame image <Picture 1>, the gigantic orange tabby cat lying on the road beside the sidewalk with the businessman next to it. Recreate the action of <Video 1> shot for shot, replacing only the giant calico cat with this same orange tabby cat, whose identity must match the character sheet <Picture 3>. <Picture 2> is a blank white placeholder: ignore it completely.Action: the man in a dark suit walks up to the lying giant cat, puts his hands on its fur and climbs up onto its back, sits astride it and turns to wave cheerfully at the camera with one hand. The giant cat then rises onto its paws and starts to walk away down the road carrying the man on its back. Static, slightly low handheld camera; night city street lined with lit apartment buildings and street lamps, same as <Picture 1>.The cat must match the references exactly: warm ginger-orange coat with darker orange mackerel tabby stripes, cream-white chin and chest, pink nose, round amber-green eyes, upright pointed ears, ringed striped tail. No calico white or black patches. Photorealistic fur lit by the orange street lights, realistic scale and weight.Audio: quiet night city ambience, distant traffic, rustle of fur, the man's short happy laugh, soft heavy paw steps."
+        "value": "Use <Video 1> only for the dance choreography, tempo, motion timing, camera movement/framing, lighting, and source audio; do not copy the human dancer’s identity. Use <Picture 1> as the exact opening-frame guide and <Picture 2> as the exact final-frame guide: begin matching Picture 1’s pose and framing, follow Video 1’s dance continuously with no cuts, then transition naturally to finish matching Picture 2’s full-body pose and framing. Maintain one consistent orange-tabby dancer throughout: the same striped orange head, amber eyes, white muzzle, and orange fur on both arms. Preserve the white shirt, black vest and tie, black trousers, metallic gold gloves, beige hallway, door, floor, shadows, and lighting. No identity drift, flicker, morphing, extra limbs, or costume/scene changes. The reference images contain screen overlays: ignore them and do not render any CapCut logo, watermark, play icon, view count, “Bisou” label, captions, or other UI/text. Preserve the source audio from <Video 1>; add no dialogue or music."
       },
       "color": "#322",
       "bgcolor": "#533"
@@ -1949,11 +1949,11 @@
         }
       },
       "widgets_values": [
-        "linkcat_00007_last.png",
+        "pasted-image (2).png",
         "image"
       ],
       "widgets_values_named": {
-        "image": "linkcat_00007_last.png",
+        "image": "pasted-image (2).png",
         "upload": "image"
       }
     },
@@ -2017,11 +2017,11 @@
         }
       },
       "widgets_values": [
-        "placeholder.png",
+        "pasted-image (4).png",
         "image"
       ],
       "widgets_values_named": {
-        "image": "placeholder.png",
+        "image": "pasted-image (4).png",
         "upload": "image"
       }
     },
@@ -2220,7 +2220,7 @@
       ],
       "size": [
         255.8291015625,
-        310
+        829.3480747767858
       ],
       "flags": {},
       "order": 16,
@@ -2334,7 +2334,8 @@
           "name": "audio",
           "type": "AUDIO",
           "links": [
-            324
+            324,
+            338
           ]
         },
         {
@@ -2350,7 +2351,7 @@
         "Node name for S&R": "VHS_LoadVideo"
       },
       "widgets_values": {
-        "video": "instagram_DfjIU50Jmrf_544x960_24fps_6-9s.mp4",
+        "video": "youtube_DwLFulXI-Ug_24fps_seg01_0-3.042s.mp4",
         "force_rate": 0,
         "custom_width": 0,
         "custom_height": 0,
@@ -2363,7 +2364,7 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "instagram_DfjIU50Jmrf_544x960_24fps_6-9s.mp4",
+            "filename": "youtube_DwLFulXI-Ug_24fps_seg01_0-3.042s.mp4",
             "type": "input",
             "format": "video/mp4",
             "force_rate": 0,
@@ -2376,7 +2377,7 @@
         }
       },
       "widgets_values_named": {
-        "video": "instagram_DfjIU50Jmrf_544x960_24fps_6-9s.mp4",
+        "video": "youtube_DwLFulXI-Ug_24fps_seg01_0-3.042s.mp4",
         "force_rate": 0,
         "custom_width": 0,
         "custom_height": 0,
@@ -2389,7 +2390,7 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "instagram_DfjIU50Jmrf_544x960_24fps_6-9s.mp4",
+            "filename": "youtube_DwLFulXI-Ug_24fps_seg01_0-3.042s.mp4",
             "type": "input",
             "format": "video/mp4",
             "force_rate": 0,
@@ -2751,18 +2752,18 @@
         "Node name for S&R": "PrimitiveBoolean"
       },
       "widgets_values": [
-        false
+        true
       ],
       "widgets_values_named": {
-        "value": false
+        "value": true
       }
     },
     {
-      "id": 162,
+      "id": 165,
       "type": "LoadImage",
       "pos": [
-        -2571.8692084035506,
-        6198.003521028396
+        -2533.649190262864,
+        6191.597765879046
       ],
       "size": [
         282.798828125,
@@ -2797,7 +2798,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            336
+            339
           ]
         },
         {
@@ -2811,11 +2812,11 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "miskinou_sheet.png",
+        "ClappingCatMeme_544x960_24fps_first.png",
         "image"
       ],
       "widgets_values_named": {
-        "image": "miskinou_sheet.png",
+        "image": "ClappingCatMeme_544x960_24fps_first.png",
         "upload": "image"
       }
     }
@@ -3190,27 +3191,27 @@
       "IMAGE"
     ],
     [
-      336,
-      162,
-      0,
-      136,
-      5,
-      "IMAGE"
-    ],
-    [
       306,
       155,
       0,
       136,
-      8,
+      7,
       "IMAGE"
+    ],
+    [
+      338,
+      155,
+      2,
+      136,
+      10,
+      "AUDIO"
     ],
     [
       279,
       138,
       0,
       136,
-      15,
+      14,
       "STRING"
     ],
     [
@@ -3218,7 +3219,7 @@
       115,
       0,
       136,
-      16,
+      15,
       "INT"
     ],
     [
@@ -3226,7 +3227,7 @@
       115,
       1,
       136,
-      17,
+      16,
       "INT"
     ],
     [
@@ -3234,8 +3235,16 @@
       131,
       1,
       136,
-      18,
+      17,
       "INT"
+    ],
+    [
+      339,
+      165,
+      0,
+      136,
+      5,
+      "IMAGE"
     ]
   ],
   "groups": [
@@ -3327,10 +3336,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.1,
+      "scale": 0.41772481694156804,
       "offset": [
-        7875.841628111935,
-        542.5482736477134
+        2821.430958668033,
+        -4301.361217633457
       ]
     },
     "frontendVersion": "1.49.6",

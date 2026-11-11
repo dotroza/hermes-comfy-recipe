@@ -30,9 +30,11 @@ except ImportError:  # pragma: no cover - script mode
 CHUNK = 1 << 20
 WRITE_EVERY_S = 0.5
 RETRIES = 5
-GROUP_ORDER = {'tutorial-1': 0, 'tutorial-2': 1}
+GROUP_ORDER = {'tutorial-1': 0, 'tutorial-2': 1, 'tutorial-3': 2, 'tutorial-4': 3}
 GROUP_LABELS = {'tutorial-1': 'Tutorial step 1 - Generate your first image',
-                'tutorial-2': 'Tutorial step 2 - Modify an image'}
+                'tutorial-2': 'Tutorial step 2 - Modify an image or create a reference sheet',
+                'tutorial-3': 'Tutorial step 3 - Create your first video',
+                'tutorial-4': 'Tutorial step 4 - Add sound to your video'}
 ACTIVE = ('pending', 'downloading')
 
 

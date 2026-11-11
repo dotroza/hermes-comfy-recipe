@@ -33,7 +33,7 @@ class RecipeCatalogV2Tests(unittest.TestCase):
         entries = {e['id']: e for e in library.load_catalog()['workflows']}
         for ident, name, refine, steps, strength in (
                 ('qwen-image-2-1-t2i', 'RCPlocal_t2i_qwen_image_2-1.json', True, 25, 0),
-                ('qwen-image-2-1-i2i', 'RCPlocal_ti2i_qwen_image_2-1.json', False, 4, 1)):
+                ('qwen-image-2-1-i2i', 'RCPlocal_ti2i_qwen_image_2-1.json', False, 25, 0)):
             with self.subTest(ident=ident):
                 entry = entries[ident]
                 self.assertEqual(entry['file'], name)

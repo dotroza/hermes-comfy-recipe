@@ -31,7 +31,7 @@ immediately before Run; completion requires a new matching successful image with
 The text-to-image working copy is `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json`; Hermes lightly cleans
 the user's wording and Qwen's built-in refiner handles creative expansion. For step 2, use
 `Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json`: Hermes composes an explicit edit plus keep-list,
-with `refine_prompt` OFF, 4 steps and Lightning ON by default. Neither policy overrides explicit user settings.
+with `refine_prompt` OFF, 25 steps and Lightning OFF (strength 0) by default. Neither policy overrides explicit user settings.
 Check model readiness independently: an enhancement loader may require its file for validation even when
 refinement is off. Existing copies and tabs are never overwritten; offer a versioned sibling for an upgrade.
 
@@ -39,7 +39,21 @@ After one successful image, “skip tutorial”, or a second distinct Recipe cha
 A failed or cached run does not count as completion. A technically successful inspected image can complete the
 lesson even if a sign is misspelled: disclose that mismatch and offer an optional retry, never claim fidelity
 without evidence. The second image in the SAME chat is not a second session.
-Step 2 (Modify an image) is implemented; steps 3–6 are not implemented yet.
+The tutorial has 4 steps, each run visibly in its own first-launch tab:
+
+| Step | Title | Workflow | Completes on |
+|---|---|---|---|
+| 1 | Generate your first image (person, pet, object, place) | `RCPlocal_t2i_qwen_image_2-1` | a verified image |
+| 2 | Modify an image or create a reference sheet | `RCPlocal_ti2i_qwen_image_2-1` | a verified image |
+| 3 | Create your first video (image + sheet, optional short reference clip) | `RCPlocal_r2v_video_minimax_h3` | a verified video |
+| 4 | Add sound to your video | `RCPlocal_audio_ace_step1-5_xl_base` + `comfy_media action=mux` | a verified audio file |
+
+Reference sheets follow a bundled layout chosen by subject kind (`comfy_onboarding action=reference_sheet
+kind=person|pet|object|location|indoor` copies the matching `plugin/assets/images/` sheet, e.g. person -> `character_sheet.png`, location -> `outdoor_sheet.png`, into `input/` as `image_2`);
+sheets keep those 25-step, Lightning-off defaults, because the 4-step mode drifts the panel grid. Step 3 makes the sheet first
+when there is none. Without a reference clip the r2v graph's Load Video + Video Info are bypassed in the window and the
+duration is set by hand; the saved video then has no sound. Step 4 mixes the ACE-Step track under the video's own
+sound (or uses it as the soundtrack of a silent video) with `comfy_media action=mux`; the video stream is copied.
 
 ## Replay and state
 

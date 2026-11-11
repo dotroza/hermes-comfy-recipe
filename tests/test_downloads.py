@@ -204,20 +204,20 @@ class TutorialStepTests(unittest.TestCase):
     def test_heading_intro_and_step2_after_step1(self):
         from plugin import onboarding_flow as flow
         r = onboarding.tutorial(self.root, self.m, 'A')
-        self.assertEqual(r['tutorial_heading'], 'Tutorial (step 1/6): Generate your first image')
+        self.assertEqual(r['tutorial_heading'], 'Tutorial (step 1/4): Generate your first image')
         self.complete_step1()
         with patch.object(flow, 'step_downloads', return_value={'queued': True, 'progress_card': 'MEDIA:c'}) as sd:
             r = flow.handle({'action': 'tutorial', 'step': 2}, 'A')
         sd.assert_called_once_with(2, 'unanswered')
         self.assertEqual((r['tutorial']['step'], r['tutorial']['state']), (2, 'awaiting_images'))
-        self.assertEqual(r['tutorial_heading'], 'Tutorial (step 2/6): Modify an image')
+        self.assertEqual(r['tutorial_heading'], 'Tutorial (step 2/4): Modify an image or create a reference sheet')
         self.assertIn('modify-image-tutorial', r['instruction'])
         self.assertIn('ONE OR SEVERAL images', r['instruction'])
         self.assertTrue(onboarding.has_tutorial(self.root, 'A'))
         # idempotent: calling step 2 again keeps the lesson
         self.assertEqual(onboarding.tutorial(self.root, self.m, 'A', step=2)['tutorial']['state'], 'awaiting_images')
         with self.assertRaises(ValueError):
-            onboarding.tutorial(self.root, self.m, 'A', step=3)
+            onboarding.tutorial(self.root, self.m, 'A', step=5)
 
     def test_begin_run_is_bound_to_the_steps_workflow(self):
         from plugin import onboarding_flow as flow
@@ -249,10 +249,11 @@ class TutorialStepTests(unittest.TestCase):
                 r = flow.handle({'action': 'complete', 'prompt_id': 'job'}, 'A')
             self.assertEqual((r['tutorial']['step'], r['tutorial']['state']), (step, 'completed'))
             if step == 1:
-                self.assertIn('Tutorial (step 2/6): Modify an image', r['instruction'])
+                self.assertIn('Tutorial (step 2/4): Modify an image or create a reference sheet', r['instruction'])
                 self.assertIn('clarify', r['instruction'])
             else:
-                self.assertIn('What would you like to do?', r['instruction'])
+                self.assertIn('Tutorial (step 3/4): Create your first video', r['instruction'])
+                self.assertNotIn('What would you like to do?', r['instruction'])
 
     def test_resume_skip_and_phrases(self):
         from plugin import onboarding_flow as flow
@@ -261,12 +262,12 @@ class TutorialStepTests(unittest.TestCase):
         self.assertEqual(flow._resume_step({'step': 2, 'state': 'skipped'}), (2, True))
         hist = [{'role': 'user', 'content': '[ComfyUI session]'}]
         r = flow.route('Back to the tutorial', 'A', recipe_session=True)
-        self.assertIn('TUTORIAL STEP 2/6', r)
+        self.assertIn('TUTORIAL STEP 2/4', r)
         self.assertEqual(onboarding.status(self.root, self.m, 'A')['tutorial']['step'], 2)
         r = flow.route('skip tutorial', 'A', recipe_session=True)
         self.assertIn('come back', r)
         r = flow.route('modify an image', 'A', recipe_session=True)
-        self.assertIn('TUTORIAL STEP 2/6', r)
+        self.assertIn('TUTORIAL STEP 2/4', r)
         del hist
 
     def test_hook_paths_do_no_network_work(self):
@@ -276,7 +277,7 @@ class TutorialStepTests(unittest.TestCase):
             out = flow.command('A', 2)
             flow.route('tutorial', 'A', recipe_session=True)
         sd.assert_not_called()
-        self.assertTrue(out.startswith('### 🎓 Tutorial (step 2/6): Modify an image'))
+        self.assertTrue(out.startswith('### 🎓 Tutorial (step 2/4): Modify an image or create a reference sheet'))
 
     def test_step_downloads_policy(self):
         from plugin import onboarding_flow as flow
@@ -291,6 +292,68 @@ class TutorialStepTests(unittest.TestCase):
         self.assertTrue(r['consent_needed'])
         self.assertIn('qwen-image-2-1-t2i', r['instruction'])
 
+    def test_four_steps_in_order_with_their_workflows_and_media(self):
+        from plugin import onboarding_flow as flow
+        self.assertEqual(onboarding.TOTAL_STEPS, 4)
+        self.assertEqual([(n, s['workflow_id'], s['media']) for n, s in onboarding.STEPS.items()], [
+            (1, 'qwen-image-2-1-t2i', 'image'), (2, 'qwen-image-2-1-i2i', 'image'),
+            (3, 'minimax-h3-r2v-mix', 'video'), (4, 'ace-step1-5-xl-base', 'audio')])
+        self.complete_step1()
+        for step, state, skill, heading in [(3, 'awaiting_action', 'first-video-tutorial', 'Create your first video'),
+                                            (4, 'awaiting_sound', 'add-sound-tutorial', 'Add sound to your video')]:
+            with patch.object(flow, 'step_downloads', return_value={'queued': False, 'state': 'done'}):
+                r = flow.handle({'action': 'tutorial', 'step': step}, 'A')
+            self.assertEqual((r['tutorial']['step'], r['tutorial']['state']), (step, state))
+            self.assertEqual(r['tutorial_heading'], f'Tutorial (step {step}/4): {heading}')
+            self.assertIn(skill, r['instruction'])
+            self.assertIn(f'TUTORIAL STEP {step}/4', r['instruction'])
+        self.assertIn('Bypass'.lower(), flow.LESSON_3.lower())
+        self.assertIn('comfy_media action=mux', flow.LESSON_4)
+        self.assertEqual(flow.route('create your first video', 'A', recipe_session=True).count('TUTORIAL STEP 3/4'), 1)
+        self.assertEqual(flow._resume_step({'step': 3, 'state': 'completed'}), (4, False))
+        self.assertEqual(flow._resume_step({'step': 4, 'state': 'completed'}), (4, True))
+
+    def test_video_and_audio_steps_complete_on_their_own_media_only(self):
+        from plugin import onboarding_flow as flow
+        from test_tutorial_evidence import history
+        onboarding.status(self.root, self.m, 'A')
+        mp4 = b'\x00\x00\x00\x18ftypisom' + b'\x00' * 20
+        mp3 = b'ID3\x04\x00' + b'\x00' * 20
+        png = b'\x89PNG\r\n\x1a\nimg'
+        for step, wid, key, good, bad, nxt in [
+                (3, 'r2v', 'images', mp4, png, 'Tutorial (step 4/4): Add sound to your video'),
+                (4, 'ace', 'audio', mp3, png, 'tutorial is complete (4/4)')]:
+            onboarding.tutorial(self.root, self.m, 'A', step=step)
+            path = {3: 'Local Recipe/RCPlocal_r2v_video_minimax_h3.json',
+                    4: 'Local Recipe/RCPlocal_audio_ace_step1-5_xl_base.json'}[step]
+            with patch.object(core.cc, 'load_workflow', return_value={'id': wid}), patch.object(core.cc, 'get_json', return_value={}), \
+                 patch('plugin.onboarding.time.time', return_value=1):
+                flow.handle({'action': 'tutorial', 'step': step, 'begin_run': True, 'workflow_path': path, 'prompt': 'a red kite'}, 'A')
+            h = history(wid)
+            h['outputs'] = {'9': {key: [{'filename': 'out', 'subfolder': '', 'type': 'output'}]}}
+            with patch.object(core.cc, 'history', return_value=h), patch.object(core.cc, 'view_bytes', return_value=bad), \
+                 self.assertRaisesRegex(ValueError, 'could not be verified'):
+                flow.handle({'action': 'complete', 'prompt_id': 'job'}, 'A')
+            with patch.object(core.cc, 'history', return_value=h), patch.object(core.cc, 'view_bytes', return_value=good):
+                r = flow.handle({'action': 'complete', 'prompt_id': 'job'}, 'A')
+            self.assertEqual((r['tutorial']['step'], r['tutorial']['state']), (step, 'completed'))
+            self.assertIn(nxt, r['instruction'])
+
+    def test_reference_sheet_copies_the_matching_bundled_layout(self):
+        from plugin import onboarding_flow as flow
+        with patch.object(flow, 'current', return_value=self.m):
+            r = flow.handle({'action': 'reference_sheet', 'kind': 'pet'}, 'A')
+            again = flow.reference_sheet('pet')
+            with self.assertRaisesRegex(ValueError, 'kind must be'):
+                flow.reference_sheet('dragon')
+        dst = Path(self.m['comfyui_dir']) / 'input' / r['input_name']
+        self.assertEqual(dst.read_bytes(), (flow.ASSETS / 'pet_sheet.png').read_bytes())
+        self.assertEqual((r['sheet'], r['reused'], again['reused'], again['input_name']), ('pet_sheet.png', False, True, r['input_name']))
+        self.assertIn('image_2', r['instruction'])
+        self.assertEqual(set(flow.REFERENCE_SHEETS), {'person', 'pet', 'object', 'location', 'indoor'})
+        for name in flow.REFERENCE_SHEETS.values():
+            self.assertTrue((flow.ASSETS / name).is_file(), name)
+
 
 class SkillAndSchemaTests(unittest.TestCase):
     def test_new_skills_registered_and_tool_schema(self):
@@ -302,15 +365,24 @@ class SkillAndSchemaTests(unittest.TestCase):
             self.assertEqual(skills[name]['workflow_ids'], ['qwen-image-2-1-i2i'])
             self.assertLessEqual(len(skills[name]['description']), 60)
         text = (ROOT / 'plugin/skills/modify-image-tutorial/SKILL.md').read_text(encoding='utf-8')
-        for token in ('Tutorial (step 2/6): Modify an image', 'begin_run=true', 'one or several images', 'comfy_result', 'vision_analyze'):
+        for token in ('Tutorial (step 2/4): Modify an image or create a reference sheet', 'begin_run=true',
+                      'one or several images', 'comfy_result', 'vision_analyze', 'action=reference_sheet'):
             self.assertIn(token, text)
         first = (ROOT / 'plugin/skills/first-image-tutorial/SKILL.md').read_text(encoding='utf-8')
-        self.assertIn('Tutorial (step 1/6): Generate your first image', first)
-        self.assertIn('Tutorial (step 2/6): Modify an image', first)
+        self.assertIn('Tutorial (step 1/4): Generate your first image', first)
+        self.assertIn('Tutorial (step 2/4): Modify an image or create a reference sheet', first)
+        self.assertEqual(skills['first-video-tutorial']['workflow_ids'], ['minimax-h3-r2v-mix', 'qwen-image-2-1-i2i'])
+        self.assertEqual(skills['add-sound-tutorial']['workflow_ids'], ['ace-step1-5-xl-base'])
+        for name, tokens in [('first-video-tutorial', ('Tutorial (step 3/4): Create your first video', 'step=3 begin_run=true', 'Bypass')),
+                             ('add-sound-tutorial', ('Tutorial (step 4/4): Add sound to your video', 'step=4 begin_run=true', 'action=mux'))]:
+            self.assertLessEqual(len(skills[name]['description']), 60)
+            text = (ROOT / f'plugin/skills/{name}/SKILL.md').read_text(encoding='utf-8')
+            for token in tokens:
+                self.assertIn(token, text)
         self.assertIn('comfy_downloads', plugin.SCHEMAS)
         self.assertIn('comfy_downloads', plugin.HANDLERS)
         self.assertIn('comfy_downloads', (ROOT / 'plugin/plugin.yaml').read_text(encoding='utf-8'))
-        self.assertEqual(plugin.SCHEMAS['comfy_onboarding']['parameters']['properties']['step']['enum'], [1, 2])
+        self.assertEqual(plugin.SCHEMAS['comfy_onboarding']['parameters']['properties']['step']['enum'], [1, 2, 3, 4])
 
 
 @unittest.skipUnless(shutil.which('node'), 'node not installed')

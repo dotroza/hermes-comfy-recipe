@@ -24,6 +24,7 @@ from pathlib import Path
 
 VIDEO_ARGS = ["-c:v", "libx264", "-crf", "16", "-preset", "slow", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
 AUDIO_ARGS = ["-c:a", "aac", "-b:a", "192k"]
+IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
 
 def _bins() -> tuple[str, str]:
@@ -115,6 +116,15 @@ def convert(path: str, start: float | None = None, duration: float | None = None
         parts.append(f"{_num(s)}-{_num(s + duration) if duration else 'end'}s")
     if not parts:
         raise ValueError("convert needs at least one of start/duration/end, width/height, fps")
+    if src.suffix.lower() in IMAGE_EXTS:
+        if start or duration or fps:
+            raise ValueError("a still image can only be resized (width/height/mode)")
+        o = _out(src, "_".join(parts), src.suffix.lower(), out)
+        if o.suffix.lower() not in IMAGE_EXTS:
+            raise ValueError(f"image output must keep an image extension, not {o.suffix!r}")
+        _run([ff, "-v", "error", "-y", "-i", str(src), "-vf", ",".join(filters), "-frames:v", "1", "-update", "1",
+              str(o)])
+        return {"action": "convert", "source": info, "output": probe(o)}
     o = _out(src, "_".join(parts), ".mp4", out)
     args = [ff, "-v", "error", "-y"] + (["-ss", str(start)] if start else []) + ["-i", str(src)]
     args += (["-t", str(duration)] if duration else []) + (["-vf", ",".join(filters)] if filters else [])
@@ -218,6 +228,42 @@ def join(paths: list[str], out: str | None = None, drop_first: int = 0) -> dict:
     return res
 
 
+def mux(path: str, audio: str, out: str | None = None, music_volume: float | None = None,
+        fade_out: float = 0.5) -> dict:
+    """Put a sound/music track on a video. The video stream is copied untouched. When the video already has
+    sound, the new track is MIXED UNDER it (music_volume, default 0.5); otherwise it becomes the soundtrack
+    (default 1.0). The track is trimmed (with a short fade-out) or padded with silence to the video length."""
+    ff, _ = _bins()
+    src, track = Path(path), Path(audio)
+    info, ainfo = probe(src), probe(track)
+    if not info.get("width"):
+        raise ValueError("mux needs a video as path")
+    if not ainfo.get("has_audio"):
+        raise ValueError("the audio file has no audio stream")
+    dur = float(info["duration_s"] or 0)
+    if dur <= 0:
+        raise ValueError("video duration unknown")
+    vol = float(music_volume if music_volume is not None else (0.5 if info["has_audio"] else 1.0))
+    if not 0 <= vol <= 4:
+        raise ValueError("music_volume must be between 0 and 4")
+    fade = max(0.0, min(float(fade_out or 0), dur / 2))
+    music = (f"[1:a]aresample=48000,aformat=channel_layouts=stereo,volume={vol:g},apad,atrim=0:{dur:.3f}"
+             + (f",afade=t=out:st={dur - fade:.3f}:d={fade:.3f}" if fade else "") + "[m]")
+    if info["has_audio"]:
+        fc = (f"[0:a]aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:{dur:.3f}[v];{music};"
+              "[v][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]")
+    else:
+        fc = music.replace("[m]", "[a]")
+    o = _out(src, "with_sound", ".mp4", out)
+    _run([ff, "-v", "error", "-y", "-i", str(src), "-i", str(track), "-filter_complex", fc,
+          "-map", "0:v:0", "-map", "[a]", "-c:v", "copy"] + AUDIO_ARGS + ["-t", f"{dur:.3f}", str(o)])
+    res = {"action": "mux", "source": info, "audio": ainfo, "mode": "mix" if info["has_audio"] else "soundtrack",
+           "music_volume": vol, "output": probe(o)}
+    if not res["output"].get("has_audio"):
+        raise RuntimeError("mux output has no audio stream")
+    return res
+
+
 def sheet(path: str, count: int = 8, columns: int = 4, out: str | None = None) -> dict:
     ff, _ = _bins()
     src = Path(path)
@@ -281,6 +327,9 @@ def handle(p: dict, input_dir_for=None) -> dict:
         res = join(p["paths"], p.get("out"), int(p.get("drop_first") or 0))
     elif a == "sheet":
         res = sheet(p["path"], int(p.get("count", 8)), int(p.get("columns", 4)), p.get("out"))
+    elif a == "mux":
+        res = mux(p["path"], p["audio"], p.get("out"), p.get("music_volume"),
+                  0.5 if p.get("fade_out") is None else float(p["fade_out"]))
     else:
         raise ValueError(f"unknown action {a!r}")
     if p.get("to_input") and a != "sheet":

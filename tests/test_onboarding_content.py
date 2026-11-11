@@ -38,10 +38,13 @@ class OnboardingContentTests(unittest.TestCase):
         import hashlib
         root=ROOT/'assets'
         readme=(root/'README.md').read_text(encoding='utf-8')
-        for folder in ['images','character-sheets','motion-videos']:
+        for folder in ['images','motion-videos']:
             self.assertTrue((root/folder/'.gitkeep').is_file())
         media=[p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in ['.png','.jpg','.jpeg','.webp','.mp4']]
-        self.assertIn('character-sheets/miskinou_sheet.png',[p.relative_to(root).as_posix() for p in media])
+        names=[p.relative_to(root).as_posix() for p in media]
+        from plugin import onboarding_flow as flow
+        for sheet in flow.REFERENCE_SHEETS.values():
+            self.assertIn('images/'+sheet,names)
         for p in media:
             with self.subTest(asset=p.name):
                 self.assertIn(f'`{p.relative_to(root).as_posix()}`',readme)
@@ -55,8 +58,8 @@ class OnboardingContentTests(unittest.TestCase):
         self.assertIn('25 steps', flow.LESSON)
         self.assertIn('Lightning LoRA strength 0', flow.LESSON)
         self.assertIn('refine_prompt off', flow.LESSON_2)
-        self.assertIn('4 steps', flow.LESSON_2)
-        self.assertIn('Lightning LoRA strength 1', flow.LESSON_2)
+        self.assertIn('25 steps', flow.LESSON_2)
+        self.assertIn('Lightning LoRA strength 0', flow.LESSON_2)
         self.assertIn('refine_prompt on', plugin.SESSION_RULES)
         self.assertIn('Cloud Recipe', plugin.SESSION_RULES)
         self.assertIn('paid', plugin.SESSION_RULES)

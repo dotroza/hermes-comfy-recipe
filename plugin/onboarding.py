@@ -10,23 +10,35 @@ import time
 import uuid
 
 VERSION = 1
-TOTAL_STEPS = 6
-# Implemented tutorial steps. Steps 3-6 are announced in the count but not built yet.
+TOTAL_STEPS = 4
+# The four tutorial steps; each one runs one bundled Local Recipe workflow visibly in the window.
 STEPS = {
     1: {'id': 'first-image', 'title': 'Generate your first image', 'workflow_id': 'qwen-image-2-1-t2i',
-        'awaiting': 'awaiting_description'},
-    2: {'id': 'modify-image', 'title': 'Modify an image', 'workflow_id': 'qwen-image-2-1-i2i',
-        'awaiting': 'awaiting_images'},
+        'awaiting': 'awaiting_description', 'media': 'image'},
+    2: {'id': 'modify-image', 'title': 'Modify an image or create a reference sheet',
+        'workflow_id': 'qwen-image-2-1-i2i', 'awaiting': 'awaiting_images', 'media': 'image'},
+    3: {'id': 'first-video', 'title': 'Create your first video', 'workflow_id': 'minimax-h3-r2v-mix',
+        'awaiting': 'awaiting_action', 'media': 'video'},
+    4: {'id': 'add-sound', 'title': 'Add sound to your video', 'workflow_id': 'ace-step1-5-xl-base',
+        'awaiting': 'awaiting_sound', 'media': 'audio'},
 }
 WAITING = tuple(s['awaiting'] for s in STEPS.values())
-INTRO = ('Let’s create your first image. Describe what you’d like to see here in the chat—a subject, '
-         'a place, a style, or just an idea. I’ll turn it into a prompt and make it in the ComfyUI window. '
+INTRO = ('Let’s create your first image: a person, a pet, an object or a place. Describe it here in the chat—who or '
+         'what it is, where, a style, or just an idea. I’ll turn it into a prompt and make it in the ComfyUI window. '
          'You can say “skip tutorial” at any time.')
-INTRO_2 = ('Now let’s modify an image. Attach one or several images here in the chat (the first one is the image '
-           'to edit, the others are references), and tell me what to change—for example “make it night time” or '
-           '“put the jacket from image 2 on the person in image 1”. I’ll load them into the image-edit workflow '
-           'and run it in the ComfyUI window. You can say “skip tutorial” at any time.')
-INTROS = {1: INTRO, 2: INTRO_2}
+INTRO_2 = ('Now let’s modify an image or turn it into a reference sheet—several views of the same subject on one '
+           'page, which keeps it consistent in the video of the next step. Use the image you just made, or attach '
+           'one or several images here (the first one is the image to edit, the others are references), and tell '
+           'me what to change—for example “make it night time”—or say “make a reference sheet”. I’ll run it in the '
+           'image-edit workflow in the ComfyUI window. You can say “skip tutorial” at any time.')
+INTRO_3 = ('Let’s make your first video from your image and its reference sheet (if you don’t have a sheet yet, I’ll '
+           'make it first). Describe the action: what happens, how the subject moves, how the camera moves. You can '
+           'also attach a short reference video (a few seconds) for the motion. I’ll run it in the video workflow '
+           'in the ComfyUI window. You can say “skip tutorial” at any time.')
+INTRO_4 = ('Last step: let’s add sound to your video. Describe the music or sound you want—style, mood, instruments, '
+           'tempo. I’ll generate it in the audio workflow in the ComfyUI window, then mix it under your video. '
+           'You can say “skip tutorial” at any time.')
+INTROS = {1: INTRO, 2: INTRO_2, 3: INTRO_3, 4: INTRO_4}
 
 
 def heading(step: int) -> str:
@@ -176,8 +188,25 @@ def begin_run(data_dir, install_id, session_id, inst, workflow_id, expected_prom
         return _view(install, session, session_id)
 
 
+_MEDIA_KEYS = {'image': ('images',), 'video': ('images', 'gifs', 'videos', 'video'), 'audio': ('audio', 'audios')}
+
+
+def media_kind(raw: bytes) -> str | None:
+    """Image / video / audio from the file signature (never from the file name)."""
+    if raw.startswith(b'\x89PNG\r\n\x1a\n') or raw.startswith(b'\xff\xd8\xff') or \
+            raw.startswith(b'RIFF') and raw[8:12] == b'WEBP':
+        return 'image'
+    if raw[4:8] == b'ftyp' or raw.startswith(b'\x1a\x45\xdf\xa3'):
+        return 'video'
+    if raw.startswith(b'ID3') or raw[:2] in (b'\xff\xfb', b'\xff\xf3', b'\xff\xf2') or raw.startswith(b'fLaC') or \
+            raw.startswith(b'OggS') or raw.startswith(b'RIFF') and raw[8:12] == b'WAVE':
+        return 'audio'
+    return None
+
+
 def verify_image_run(inst: dict, prompt_id: str, *, expected_workflow_id: str,
-                     started_after_ms: int, baseline_prompt_ids: set[str], expected_prompt_hash: str | None = None) -> dict:
+                     started_after_ms: int, baseline_prompt_ids: set[str], expected_prompt_hash: str | None = None,
+                     media: str = 'image') -> dict:
     from . import comfy_client as cc
     if not prompt_id or prompt_id == 'latest' or prompt_id in baseline_prompt_ids:
         raise ValueError('Use the explicit new prompt id from the visible tutorial run')
@@ -205,15 +234,16 @@ def verify_image_run(inst: dict, prompt_id: str, *, expected_workflow_id: str,
         samplers = {str(n) for n, row in prompt[2].items() if row.get('class_type') in ('KSampler', 'KSamplerAdvanced', 'SamplerCustom', 'SamplerCustomAdvanced')}
         if not samplers or samplers <= cached:
             raise ValueError('No fresh sampling: cached jobs do not complete the tutorial')
-        images = [it for out in h['outputs'].values() for it in out.get('images', []) if it.get('type') == 'output']
-        if not images:
-            raise ValueError('No saved image output')
-        image = images[0]
-        raw = cc.view_bytes(inst['url'], image['filename'], image.get('subfolder', ''), image['type'])
-        if not (raw.startswith(b'\x89PNG\r\n\x1a\n') or raw.startswith(b'\xff\xd8\xff') or
-                raw.startswith(b'RIFF') and raw[8:12] == b'WEBP'):
-            raise ValueError('Image output could not be verified')
-        return {'prompt_id': prompt_id, 'workflow_id': expected_workflow_id, 'finished_ms': finish, 'image': image}
+        files = [it for out in h['outputs'].values() for key in _MEDIA_KEYS[media]
+                 for it in (out.get(key) or []) if isinstance(it, dict) and it.get('type') == 'output']
+        if not files:
+            raise ValueError(f'No saved {media} output')
+        for item in files:
+            raw = cc.view_bytes(inst['url'], item['filename'], item.get('subfolder', ''), item['type'])
+            if media_kind(raw[:64]) == media:
+                return {'prompt_id': prompt_id, 'workflow_id': expected_workflow_id, 'finished_ms': finish,
+                        'media': media, 'output': item, 'image': item}
+        raise ValueError(f'{media.capitalize()} output could not be verified')
     except (KeyError, TypeError, IndexError, StopIteration) as exc:
         raise ValueError('Missing or malformed tutorial execution evidence') from exc
 
@@ -230,7 +260,8 @@ def complete(data_dir, install_id, session_id, inst, prompt_id):
             raise ValueError('No prepared tutorial run in this session')
     proof = verify_image_run(inst, prompt_id, expected_workflow_id=claim['workflow_id'],
                              started_after_ms=claim['started_after_ms'],
-                             baseline_prompt_ids=set(claim['baseline_prompt_ids']), expected_prompt_hash=claim.get('prompt_hash'))
+                             baseline_prompt_ids=set(claim['baseline_prompt_ids']), expected_prompt_hash=claim.get('prompt_hash'),
+                             media=STEPS[_step_of(claim)].get('media', 'image'))
     with _records(data_dir, install_id, session_id) as (install, session):
         if session['tutorial'] != claim:
             raise ValueError('Tutorial changed while verifying; retry against the current lesson')

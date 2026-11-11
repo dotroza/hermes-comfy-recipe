@@ -10,7 +10,7 @@ an RTX 3090 (24 GB) with the w6a8 diffusion model, the 8B text encoder, Lightnin
 | Reference video `<Video 1>` | 155 `VHS_LoadVideo` -> `ref_video_0` | its length sets the output length (157 `VHS_VideoInfo` -> 132 `Float (Duration)`) |
 | First-frame image | 150 `LoadImage` -> guide 152 (`frame_idx 0`) AND `ref_image_0` = `<Picture 1>` | |
 | Last-frame image | 151 `LoadImage` -> guide 153 (`frame_idx -1`) AND `ref_image_1` = `<Picture 2>` | |
-| Character sheet | 162 `LoadImage` -> `ref_image_2` = `<Picture 3>` | bundled `assets/character-sheets/miskinou_sheet.png` |
+| Character sheet | 165 `LoadImage` -> `ref_image_2` = `<Picture 3>` | bundled `assets/images/pet_sheet.png` (Miskinou) or the subject's own sheet |
 | Toggles | 160 `Boolean (Use First Frame)`, 161 `Boolean (Use Last Frame)` | group "First frame / last frame" |
 | Switches | 158 / 159 `If/Else Switch (First Frame / Last Frame)` | lazy: a switched-off guide is never computed |
 | Speed | 146 `Boolean (Enable Lightning LoRA)`, 115 `Resolution Selector` | |
@@ -47,7 +47,7 @@ Conditioning path: `MiniMax positive -> [158 first] -> guide 153 -> [159 last] -
    segment starts on the previous segment's last frame (73 frames each).
 2. Segment 1: the normal run (character sheet + photo, or first-frame image).
 3. Segment k>1: `comfy_media action=frames which=["last"] to_input=true` on segment k-1's OUTPUT -> First frame image
-   (150), Use First Frame on, Use Last Frame off (placeholder in 151), same sheet in 162, same megapixels as segment 1,
+   (150), Use First Frame on, Use Last Frame off (placeholder in 151), same sheet in 165, same megapixels as segment 1,
    reference video = source segment k. Prompt: "Continue the scene: start exactly on the supplied first-frame image
    `<Picture 1>` ..." + the action of this part of the source + the character description + "`<Picture 2>` is a blank
    white placeholder" + audio.

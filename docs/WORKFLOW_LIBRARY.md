@@ -27,7 +27,7 @@ never embed credentials in the graphs or documentation.
 
 Qwen text-to-image: Hermes lightly cleans the user's wording without imposing a pose, setting or palette;
 Image Gen `refine_prompt` ON, 25 steps, Lightning disabled (strength 0). Qwen image editing: Hermes writes an
-explicit change plus keep-list; `refine_prompt` OFF, 4 steps, Lightning ON. Preserve explicit user settings.
+explicit change plus keep-list; `refine_prompt` OFF, 25 steps, Lightning disabled (strength 0). Preserve explicit user settings.
 
 The MiniMax graph in this release uses local model loaders, not a paid API (w6a8 diffusion model + Qwen3-VL 8B
 encoder through ComfyUI-ClipProj, Load Video from VideoHelperSuite). It replaces `minimax-h3-r2v` and
@@ -97,7 +97,11 @@ A second skill such as `person-replacement` can reference the same `qwen-image-2
 both `qwen-image-2-1-t2i` and `minimax-h3-r2v-mix`. A workflow-free troubleshooting skill omits `metadata.comfy_recipe`
 completely or sets `workflow_ids: []`. No running ComfyUI is needed merely to load these instructions. Registration
 checks names, package-contained paths and references; unknown IDs and malformed metadata are errors, not silent skips.
-Only requested skills are loaded in full; discovery does not inject all skill bodies into each session.
+Only requested skills are loaded in full; discovery does not inject all skill bodies into each session. The plugin registers
+these focused skills for just-in-time use: `comfy-workflow-authoring` (building/changing saved graphs),
+`comfy-run-recovery` (failed or suspicious runs), `comfy-refine-loop` (iterative brief-driven work),
+`comfy-quality-gate` (pre-delivery review), and `comfy-consistency` (repeated subject/style consistency). The agent
+should load a skill only when the user's request matches its trigger; do not load all plugin skill bodies at session start.
 
 ## Capture and version workflows
 

@@ -1,7 +1,7 @@
 ---
 name: first-image-tutorial
-description: "Use when guiding tutorial step 1/6, the first image."
-version: 0.2.0
+description: "Use when guiding tutorial step 1/4, the first image."
+version: 0.3.0
 author: dotroza, Hermes Agent
 license: MIT
 platforms: [windows, linux, macos]
@@ -13,17 +13,19 @@ metadata:
     related_skills: [session, qwen-image-2-1-prompting, modify-image-tutorial]
 ---
 
-# Tutorial (step 1/6): Generate your first image
+# Tutorial (step 1/4): Generate your first image
 
 ## When to use
 After fresh-install setup choices, or when the user asks for the tutorial (`/comfy tutorial`, “tutorial”, “start/
-replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-tutorial`; steps 3-6 do not exist yet.
+replay the tutorial”). The tutorial has 4 steps: 1 first image (this skill), 2 modify an image or create a
+reference sheet (`comfy-recipe:modify-image-tutorial`), 3 first video (`comfy-recipe:first-video-tutorial`),
+4 add sound (`comfy-recipe:add-sound-tutorial`).
 
 ## Procedure
 1. Load `comfy-recipe:session` and `references/pane-recipe.md`. Call `comfy_onboarding action=tutorial step=1`
    once (idempotent; for an explicit restart request use `replay=true` once, never on every turn). Replay resets
    lesson progress, never node/model preferences. The result carries `downloads` for this step.
-2. Start the reply with the heading `### 🎓 Tutorial (step 1/6): Generate your first image`, so the user sees they
+2. Start the reply with the heading `### 🎓 Tutorial (step 1/4): Generate your first image`, so the user sees they
    are in the tutorial. Open `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json` visibly with `drive_preview` right away:
    the user should see the text-to-image workflow they are about to use. Re-read the page; never discard a dirty
    tab or overwrite a changed working copy. If the saved graph differs from the bundle, offer a versioned copy.
@@ -37,10 +39,13 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
    needed. Preserve dirty prompts/tabs; do not reload or close/reopen the page. Failed/stalled downloads are blockers,
    not readiness. If consent is needed, obtain it before waiting as described in step 6.
    Then, if the user has not supplied an image idea, ask:
-   “Let’s create your first image. Describe what you’d like to see here in the chat—a subject, a place, a style,
-   or just an idea. I’ll turn it into a prompt and make it in the ComfyUI window. You can say ‘skip tutorial’ at
-   any time.” Do not substitute “What should I do first?” Other workflows may continue downloading in the background.
-5. When a description arrives, load `comfy-recipe:qwen-image-2-1-prompting` and lightly clean the user's wording
+   “Let’s create your first image: a person, a pet, an object or a place. Describe it here in the chat—who or
+   what it is, where, a style, or just an idea. I’ll turn it into a prompt and make it in the ComfyUI window. You
+   can say ‘skip tutorial’ at any time.” Do not substitute “What should I do first?” Other workflows may continue downloading in the background.
+5. When a description arrives, note the subject kind (person, pet, object, outdoor location or indoor room): it
+   picks the reference-sheet layout in steps 2-3. A single clearly visible subject, full body / whole object, on a
+   simple background makes the later sheet and video easier; suggest it only when the idea allows, never force it.
+   Load `comfy-recipe:qwen-image-2-1-prompting` and lightly clean the user's wording
    without adding a pose, setting or palette. The Image Gen defaults are `refine_prompt` ON, 25 steps,
    Lightning disabled (strength 0); preserve any explicit user settings.
 6. Readiness before Run:
@@ -69,7 +74,8 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
     an optional retry rather than claiming the lettering is correct.
 11. Show the image with `MEDIA:<output path>` and a short timing line. Then ONE `clarify` call, one question:
     “What next? Continue the tutorial, or type a description to generate another image with the same workflow.”
-    with the single choice **“Tutorial (step 2/6): Modify an image”** (the form's Other row is the text box).
+    with the single choice **“Tutorial (step 2/4): Modify an image or create a reference sheet”** (the form's
+    Other row is the text box).
     - Step 2 → `comfy_onboarding action=tutorial step=2`, then follow `comfy-recipe:modify-image-tutorial`.
     - A typed description → write the prompt, type it in the same text-to-image tab, Run visibly (no begin_run),
       show the image, then offer the same choice again.
@@ -83,7 +89,7 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
 - “Back to the tutorial” later: `comfy_onboarding action=tutorial resume=true` (lands on step 2 after step 1).
 - A second distinct Comfy Recipe session opens normally. It is not tutorial completion.
 - Missing dependencies, unavailable media, backend errors and failed jobs are blockers, not completed lessons.
-- No reference assets are required; do not import private pictures or download example media.
+- No input asset is required for this step; do not import private pictures or download example media.
 
 ## Verification
 Completion requires an uncached successful image job associated with this lesson and a visual inspection.

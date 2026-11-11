@@ -1,8 +1,8 @@
 {
   "id": "7eeb95ae-dc8d-5526-98c0-5420e8e6dc8b",
   "revision": 0,
-  "last_node_id": 516,
-  "last_link_id": 832,
+  "last_node_id": 522,
+  "last_link_id": 841,
   "nodes": [
     {
       "id": 459,
@@ -18,7 +18,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -188,7 +188,7 @@
           "name": "images.image_2",
           "shape": 7,
           "type": "IMAGE",
-          "link": null
+          "link": 841
         },
         {
           "label": "image_3",
@@ -294,17 +294,17 @@
       },
       "widgets_values": [
         1024,
-        "Change the man's pose from crouching to standing upright in a relaxed natural stance, with his arms resting by his sides and both feet on the floor. Show his complete body, including his cap and both shoes. Keep the same person, face, expression, printed shirt, loose track pants, distinctive sneakers, cap, digital watch, rings and neck tattoo. Keep the same beige studio background, soft lighting and photorealistic style. Change only the pose and the framing needed to fit his standing body.",
+        "In <image1>, change only the small tattoo on the side of the man's neck, just below and behind his ear: replace it with the tattoo from <image2>, copied exactly as designed in <image2>: three Tetris pieces drawn as square cells with thick black outlines, a pink-magenta S-shaped piece of four squares at the top, a yellow L-shaped piece of three squares in the middle, and a teal-blue L-shaped piece of three squares at the bottom, arranged diagonally from upper left to lower right, crisp and clearly legible, realistically inked into the skin, sized to fit the side of the neck. Use <image2> only for the tattoo design: do not copy its zoom, skin, hair, ear, framing or colour grading. Keep everything else in <image1> exactly unchanged: the exact colours, white balance and contrast, the perfectly smooth uniform warm beige backdrop and floor with no texture or blotches, his face, ear, skin tone, goatee, black cap, mint-green and black striped shirt, watch, hands, black track pants, socks, sneakers, pose, shadows, framing and camera angle. Seamless photorealistic local edit, no added text.",
         false,
         "",
         1,
-        4,
+        25,
         false,
         512,
         940,
         "euler",
         "simple",
-        1120131197569023,
+        992095321524774,
         "qwen_image_2.1_int8_convrot.safetensors",
         "qwen3vl_8b_w4a8.safetensors",
         "qwen_image_2.1_vae_bf16.safetensors",
@@ -312,21 +312,21 @@
         "default",
         "qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
         "Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors",
-        1
+        0
       ],
       "widgets_values_named": {
         "resolution": 1024,
-        "prompt": "Change the man's pose from crouching to standing upright in a relaxed natural stance, with his arms resting by his sides and both feet on the floor. Show his complete body, including his cap and both shoes. Keep the same person, face, expression, printed shirt, loose track pants, distinctive sneakers, cap, digital watch, rings and neck tattoo. Keep the same beige studio background, soft lighting and photorealistic style. Change only the pose and the framing needed to fit his standing body.",
+        "prompt": "In <image1>, change only the small tattoo on the side of the man's neck, just below and behind his ear: replace it with the tattoo from <image2>, copied exactly as designed in <image2>: three Tetris pieces drawn as square cells with thick black outlines, a pink-magenta S-shaped piece of four squares at the top, a yellow L-shaped piece of three squares in the middle, and a teal-blue L-shaped piece of three squares at the bottom, arranged diagonally from upper left to lower right, crisp and clearly legible, realistically inked into the skin, sized to fit the side of the neck. Use <image2> only for the tattoo design: do not copy its zoom, skin, hair, ear, framing or colour grading. Keep everything else in <image1> exactly unchanged: the exact colours, white balance and contrast, the perfectly smooth uniform warm beige backdrop and floor with no texture or blotches, his face, ear, skin tone, goatee, black cap, mint-green and black striped shirt, watch, hands, black track pants, socks, sneakers, pose, shadows, framing and camera angle. Seamless photorealistic local edit, no added text.",
         "switch_1": false,
         "negative_prompt": "",
         "cfg": 1,
-        "steps": 4,
+        "steps": 25,
         "switch": false,
         "width": 512,
         "height": 940,
         "scheduler": "euler",
         "scheduler_1": "simple",
-        "seed": 1120131197569023,
+        "seed": 992095321524774,
         "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
         "clip_name": "qwen3vl_8b_w4a8.safetensors",
         "vae_name": "qwen_image_2.1_vae_bf16.safetensors",
@@ -334,7 +334,7 @@
         "dtype": "default",
         "clip_name_1": "qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors",
         "lora_name": "Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors",
-        "lora_strength": 1
+        "lora_strength": 0
       }
     },
     {
@@ -351,7 +351,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 8,
+      "order": 7,
       "mode": 0,
       "showAdvanced": true,
       "inputs": [
@@ -431,16 +431,14 @@
       "id": 463,
       "type": "MarkdownNote",
       "pos": [
-        -785.270071997051,
-        2388.2405607177743
+        -720.681214077267,
+        2000.0921078997872
       ],
       "size": [
         420,
         620
       ],
-      "flags": {
-        "pinned": true
-      },
+      "flags": {},
       "order": 0,
       "mode": 0,
       "inputs": [],
@@ -525,11 +523,11 @@
         }
       },
       "widgets_values": [
-        "streetwear_crouching_reference.png",
+        "pasted-image (7).png",
         "image"
       ],
       "widgets_values_named": {
-        "image": "streetwear_crouching_reference.png",
+        "image": "pasted-image (7).png",
         "upload": "image"
       }
     },
@@ -547,7 +545,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 9,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -590,16 +588,14 @@
       "id": 476,
       "type": "MarkdownNote",
       "pos": [
-        -1225.270071997051,
-        2388.2405607177743
+        -1160.681214077267,
+        2000.0921078997872
       ],
       "size": [
         420,
         620
       ],
-      "flags": {
-        "pinned": true
-      },
+      "flags": {},
       "order": 2,
       "mode": 0,
       "inputs": [],
@@ -613,10 +609,10 @@
         }
       },
       "widgets_values": [
-        "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors)\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_bf16.safetensors\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
+        "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_w4a8.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors) (5.88 GB)\n- [qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors) (6.26 GB), prompt enhancer (`PE_model`, used when `refine_prompt` is on)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n**loras**\n\n- [Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors](https://huggingface.co/lightx2v/Qwen-Image-2.1-Lightning/resolve/main/pytorch_lora_weights.safetensors) (64.0 MB), published in [lightx2v/Qwen-Image-2.1-Lightning](https://huggingface.co/lightx2v/Qwen-Image-2.1-Lightning) as `pytorch_lora_weights.safetensors`: rename it to `Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors`\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_w4a8.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors\n│   ├── 📂 vae/\n│   │   └── qwen_image_2.1_vae_bf16.safetensors\n│   └── 📂 loras/\n│       └── Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
       ],
       "widgets_values_named": {
-        "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors)\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_bf16.safetensors\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
+        "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_w4a8.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_w4a8.safetensors) (5.88 GB)\n- [qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors) (6.26 GB), prompt enhancer (`PE_model`, used when `refine_prompt` is on)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n**loras**\n\n- [Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors](https://huggingface.co/lightx2v/Qwen-Image-2.1-Lightning/resolve/main/pytorch_lora_weights.safetensors) (64.0 MB), published in [lightx2v/Qwen-Image-2.1-Lightning](https://huggingface.co/lightx2v/Qwen-Image-2.1-Lightning) as `pytorch_lora_weights.safetensors`: rename it to `Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors`\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_w4a8.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i_w4a8.safetensors\n│   ├── 📂 vae/\n│   │   └── qwen_image_2.1_vae_bf16.safetensors\n│   └── 📂 loras/\n│       └── Qwen-Image-2.1-Lightning-4steps-lightx2v.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
       },
       "color": "#222",
       "bgcolor": "#000"
@@ -635,7 +631,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 7,
+      "order": 6,
       "mode": 0,
       "inputs": [
         {
@@ -717,116 +713,65 @@
       }
     },
     {
-      "id": 515,
-      "type": "LoadBackgroundRemovalModel",
+      "id": 518,
+      "type": "LoadImage",
       "pos": [
-        -385.42714497096284,
-        3137.1351701102703
+        -224.06113841086287,
+        2721.836692311452
       ],
       "size": [
-        330,
-        86
+        282.798828125,
+        102
       ],
-      "flags": {
-        "pinned": true
-      },
+      "flags": {},
       "order": 3,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "bg_removal_name",
-          "name": "bg_removal_name",
+          "localized_name": "image",
+          "name": "image",
           "type": "COMBO",
           "widget": {
-            "name": "bg_removal_name"
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
           },
           "link": null
         }
       ],
       "outputs": [
         {
-          "localized_name": "bg_model",
-          "name": "bg_model",
-          "type": "BACKGROUND_REMOVAL",
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
           "links": [
-            832
+            841
           ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadBackgroundRemovalModel",
-        "cnr_id": "comfy-core",
-        "ver": "0.33.0",
-        "models": [
-          {
-            "name": "birefnet.safetensors",
-            "url": "https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
-            "directory": "background_removal"
-          }
-        ],
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.8",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "birefnet.safetensors"
-      ],
-      "widgets_values_named": {
-        "bg_removal_name": "birefnet.safetensors"
-      },
-      "color": "#322",
-      "bgcolor": "#533"
-    },
-    {
-      "id": 516,
-      "type": "RemoveBackground",
-      "pos": [
-        27.57463902935214,
-        3143.706871974008
-      ],
-      "size": [
-        230,
-        80
-      ],
-      "flags": {
-        "collapsed": false,
-        "pinned": true
-      },
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "localized_name": "bg_removal_model",
-          "name": "bg_removal_model",
-          "type": "BACKGROUND_REMOVAL",
-          "link": 832
         },
         {
-          "localized_name": "image",
-          "name": "image",
-          "type": "IMAGE",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "localized_name": "mask",
-          "name": "mask",
+          "localized_name": "MASK",
+          "name": "MASK",
           "type": "MASK",
-          "links": []
+          "links": null
         }
       ],
       "properties": {
-        "Node name for S&R": "RemoveBackground",
-        "cnr_id": "comfy-core",
-        "ver": "0.33.0",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.8",
-          "input_ue_unconnectable": {}
-        }
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "pasted-image (8).png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "pasted-image (8).png",
+        "upload": "image"
       }
     }
   ],
@@ -888,12 +833,12 @@
       "IMAGE"
     ],
     [
-      832,
-      515,
+      841,
+      518,
       0,
-      516,
-      0,
-      "BACKGROUND_REMOVAL"
+      459,
+      19,
+      "IMAGE"
     ],
     [
       822,
@@ -912,8 +857,8 @@
         "version": 1,
         "state": {
           "lastGroupId": 38,
-          "lastNodeId": 516,
-          "lastLinkId": 832,
+          "lastNodeId": 522,
+          "lastLinkId": 841,
           "lastRerouteId": 9
         },
         "revision": 0,
@@ -1789,7 +1734,7 @@
             },
             "widgets_values": [
               0,
-              "randomize",
+              "fixed",
               25,
               1,
               "euler",
@@ -1798,7 +1743,7 @@
             ],
             "widgets_values_named": {
               "seed": 0,
-              "control_after_generate": "randomize",
+              "control_after_generate": "fixed",
               "steps": 25,
               "cfg": 1,
               "sampler_name": "euler",
@@ -2007,27 +1952,6 @@
                 "link": null
               },
               {
-                "localized_name": "image_11",
-                "name": "images.image_11",
-                "shape": 7,
-                "type": "IMAGE",
-                "link": null
-              },
-              {
-                "localized_name": "image_2",
-                "name": "images.image_2",
-                "shape": 7,
-                "type": "IMAGE",
-                "link": 711
-              },
-              {
-                "localized_name": "image_3",
-                "name": "images.image_3",
-                "shape": 7,
-                "type": "IMAGE",
-                "link": 712
-              },
-              {
                 "localized_name": "image_4",
                 "name": "images.image_4",
                 "shape": 7,
@@ -2075,6 +1999,27 @@
                 "shape": 7,
                 "type": "IMAGE",
                 "link": 719
+              },
+              {
+                "localized_name": "image_11",
+                "name": "images.image_11",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": null
+              },
+              {
+                "localized_name": "image_2",
+                "name": "images.image_2",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": 711
+              },
+              {
+                "localized_name": "image_3",
+                "name": "images.image_3",
+                "shape": 7,
+                "type": "IMAGE",
+                "link": 712
               }
             ],
             "outputs": [
@@ -3234,27 +3179,11 @@
             "type": "INT"
           },
           {
-            "id": 711,
-            "origin_id": -10,
-            "origin_slot": 19,
-            "target_id": 474,
-            "target_slot": 8,
-            "type": "IMAGE"
-          },
-          {
-            "id": 712,
-            "origin_id": -10,
-            "origin_slot": 20,
-            "target_id": 474,
-            "target_slot": 9,
-            "type": "IMAGE"
-          },
-          {
             "id": 713,
             "origin_id": -10,
             "origin_slot": 21,
             "target_id": 474,
-            "target_slot": 10,
+            "target_slot": 7,
             "type": "IMAGE"
           },
           {
@@ -3262,7 +3191,7 @@
             "origin_id": -10,
             "origin_slot": 22,
             "target_id": 474,
-            "target_slot": 11,
+            "target_slot": 8,
             "type": "IMAGE"
           },
           {
@@ -3270,7 +3199,7 @@
             "origin_id": -10,
             "origin_slot": 23,
             "target_id": 474,
-            "target_slot": 12,
+            "target_slot": 9,
             "type": "IMAGE"
           },
           {
@@ -3278,7 +3207,7 @@
             "origin_id": -10,
             "origin_slot": 24,
             "target_id": 474,
-            "target_slot": 13,
+            "target_slot": 10,
             "type": "IMAGE"
           },
           {
@@ -3286,7 +3215,7 @@
             "origin_id": -10,
             "origin_slot": 25,
             "target_id": 474,
-            "target_slot": 14,
+            "target_slot": 11,
             "type": "IMAGE"
           },
           {
@@ -3294,13 +3223,29 @@
             "origin_id": -10,
             "origin_slot": 26,
             "target_id": 474,
-            "target_slot": 15,
+            "target_slot": 12,
             "type": "IMAGE"
           },
           {
             "id": 719,
             "origin_id": -10,
             "origin_slot": 27,
+            "target_id": 474,
+            "target_slot": 13,
+            "type": "IMAGE"
+          },
+          {
+            "id": 711,
+            "origin_id": -10,
+            "origin_slot": 19,
+            "target_id": 474,
+            "target_slot": 15,
+            "type": "IMAGE"
+          },
+          {
+            "id": 712,
+            "origin_id": -10,
+            "origin_slot": 20,
             "target_id": 474,
             "target_slot": 16,
             "type": "IMAGE"
@@ -3433,10 +3378,10 @@
     "VHS_MetadataImage": true,
     "VHS_KeepIntermediate": true,
     "ds": {
-      "scale": 0.8806876714139582,
+      "scale": 0.29408349370551556,
       "offset": [
-        163.40971984981874,
-        -2376.3864177112123
+        731.9789180853506,
+        -560.8212617849729
       ]
     },
     "ue_links": [],

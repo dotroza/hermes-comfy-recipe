@@ -33,8 +33,8 @@ separate recipe engine or registry. See [the workflow-library guide](docs/WORKFL
 stable IDs, authoring and updates. Cloud workflows require ComfyUI login and credits; copying definitions never
 queues a paid run. Obtain explicit approval before paid execution and never embed credentials.
 
-Qwen image editing uses an explicit change plus keep-list composed by Hermes, `refine_prompt` OFF, 4 steps and
-Lightning ON by default. Text-to-image uses light wording cleanup and built-in refinement, as described below.
+Qwen image editing uses an explicit change plus keep-list composed by Hermes, `refine_prompt` OFF, 25 steps and
+Lightning OFF (strength 0) by default. Text-to-image uses light wording cleanup and built-in refinement, as described below.
 Neither policy overrides explicit user settings.
 
 Use `comfy_workflows action=library` (offline), `action=install` (copy only), or `action=check workflow=<stable ID>`
@@ -47,7 +47,9 @@ and download missing models now (with verified GB) or on use. Then describe your
 Hermes lightly cleans the wording without imposing a pose, setting or palette; Qwen's Image Gen
 `refine_prompt` is ON (25 steps, Lightning disabled at strength 0) for creative expansion, unless explicitly overridden.
 The agent generates it visibly. Skip with
-“skip tutorial”, or replay with `/comfy tutorial`. Returning sessions open normally; step 2 teaches image editing, and steps 3–6 are held.
+“skip tutorial”, or replay with `/comfy tutorial [1-4]`. Returning sessions open normally. The tutorial has 4 steps:
+first image → modify it or make a reference sheet → first video (image + sheet, optional reference clip) → add sound.
+A fresh ComfyUI opens five tabs in that order (text-to-image, image edit, video, audio, image-to-3D) and selects the first.
 See [onboarding details](docs/ONBOARDING.md). Add redistributable references under [plugin/assets](plugin/assets/README.md).
 
 ## Visible vs headless

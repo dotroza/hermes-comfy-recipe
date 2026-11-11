@@ -14,10 +14,17 @@ class StartupTabsTests(unittest.TestCase):
           const tabs = JSON.parse(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
           assert.equal(tabs.activeIndex, 0);
           assert.equal(tabs.paths[0], 'workflows/Local Recipe/RCPlocal_t2i_qwen_image_2-1.json');
-          assert.equal(tabs.paths.length, 10);
-          assert.deepEqual(new Set(tabs.paths), new Set(EXPECTED_PATHS));
+          assert.deepEqual(tabs.paths, EXPECTED_PATHS);
           assert.equal(JSON.parse(localStorage.getItem('Comfy.Workflow.LastActivePath:personal')).path, tabs.paths[0]);
         """)
+
+    def test_fresh_browser_opens_the_five_local_tabs_in_tutorial_order(self):
+        self.assertEqual(library.startup_paths(), [
+            'workflows/Local Recipe/RCPlocal_t2i_qwen_image_2-1.json',
+            'workflows/Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json',
+            'workflows/Local Recipe/RCPlocal_r2v_video_minimax_h3.json',
+            'workflows/Local Recipe/RCPlocal_audio_ace_step1-5_xl_base.json',
+            'workflows/Local Recipe/RCPlocal_i23d_pixal3d.json'])
 
     def test_empty_native_session_pointer_does_not_hide_fresh_tabs(self):
         self.run_browser_check("""
@@ -28,8 +35,7 @@ class StartupTabsTests(unittest.TestCase):
           // Native restore prefers sessionStorage to the localStorage fallback.
           const tabs = JSON.parse(sessionStorage.getItem('Comfy.Workflow.OpenPaths:fresh-client') ||
             localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
-          assert.equal(tabs.paths.length, 10);
-          assert.deepEqual(new Set(tabs.paths), new Set(EXPECTED_PATHS));
+          assert.deepEqual(tabs.paths, EXPECTED_PATHS);
           assert.equal(tabs.activeIndex, 0);
           assert.equal(tabs.paths[0], 'workflows/Local Recipe/RCPlocal_t2i_qwen_image_2-1.json');
           assert.equal(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'), JSON.stringify(tabs));
@@ -140,7 +146,6 @@ class StartupTabsTests(unittest.TestCase):
               vm.runInNewContext(source, { app, localStorage, sessionStorage, console });
               ASSERTIONS
             """.replace('SOURCE', json.dumps(source)).replace('ASSERTIONS', assertions).replace(
-                'EXPECTED_PATHS', json.dumps(['workflows/' + e.get('folder', library.FOLDER) + '/' +
-                                             Path(e['file']).name for e in library.load_catalog()['workflows']]))
+                'EXPECTED_PATHS', json.dumps(library.startup_paths()))
             result = subprocess.run(['node', '-e', script], text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

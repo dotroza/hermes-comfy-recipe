@@ -80,10 +80,13 @@ approved they are always:
 `comfy_downloads action=install_nodes`. Settings only (no packs): step 4 is enough, no restart.
 Do not ask what the user wants to do until tutorial success, explicit skip, or the next distinct Recipe session.
 `/comfy tutorial` replays the first-image lesson at any time; “tutorial” and “skip tutorial” also work in Recipe chats.
-Steps 1 (generate) and 2 (modify) exist; steps 3–6 are not implemented. For text-to-image,
+The tutorial has 4 steps: 1 first image (t2i, `first-image-tutorial`), 2 modify an image or create a reference sheet
+(ti2i, `modify-image-tutorial`; bundled layout sheets via `comfy_onboarding action=reference_sheet`), 3 first video
+(r2v, `first-video-tutorial`), 4 add sound (ACE-Step audio + `comfy_media action=mux`, `add-sound-tutorial`).
+For text-to-image,
 `comfy-recipe:qwen-image-2-1-prompting` lightly cleans the user's wording, with Image Gen `refine_prompt` ON,
 25 steps and Lightning disabled (strength 0). For image editing, `comfy-recipe:qwen-image-2-1-editing` writes an
-explicit change plus keep-list, with `refine_prompt` OFF, 4 steps and Lightning ON. These are bundled defaults,
+explicit change plus keep-list, with `refine_prompt` OFF, 25 steps and Lightning disabled (strength 0). These are bundled defaults,
 not permission to override explicit user settings. Returning/legacy installs are not forced into onboarding.
 
 ## Procedure: open a ComfyUI session

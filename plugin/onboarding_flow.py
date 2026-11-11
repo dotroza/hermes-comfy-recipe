@@ -4,7 +4,12 @@ import json
 import re
 import uuid
 from pathlib import Path
-from . import core, dependencies, download_flow, downloads, installer, library, onboarding
+from . import core, dependencies, download_flow, downloads, installer, library, media, onboarding
+
+ASSETS = Path(__file__).resolve().parent / 'assets' / 'images'
+# Bundled layout sheets: the grid/views a new reference sheet of that subject kind should follow.
+REFERENCE_SHEETS = {'person': 'character_sheet.png', 'pet': 'pet_sheet.png', 'object': 'object_sheet.png',
+                    'location': 'outdoor_sheet.png', 'indoor': 'indoor_sheet.png'}
 
 CARD_RULE = ('When a result carries progress_card, put that exact MEDIA:<path> line ONCE, alone on its own line, in your '
              'reply: the desktop app turns it into a live progress card (and a status-bar chip); never repeat it per poll. ')
@@ -21,7 +26,7 @@ SETUP = (
     'Models: (1) "Download on use (recommended): each tutorial step downloads its own models when you reach it; other '
     'workflows download theirs when you use them (I ask first)" vs (2) "Download everything now (<verified total GB>)". '
     'End the bulk-download choice at the closing size parenthesis; do not append download-order or tutorial commentary. '
-    'Internally retain download priority: tutorial step 1, then step 2, then the rest. '
+    'Internally retain download priority: tutorial step 1, then steps 2, 3 and 4, then the rest. '
     'Deduplicate shared files. If size_complete=false, say at least the known GB plus the unknown count; inventory '
     'unknown is not missing. Skip categories already available (record on_use for a skipped empty category). '
     'Explain third-party Python and the managed restart required for node packs. '
@@ -37,12 +42,14 @@ SETUP = (
     'Then call comfy_onboarding action=tutorial (step 1 may start while other files download); do not ask What should I do first yet.'
 )
 LESSON = (
-    'TUTORIAL STEP 1/6. Load skill_view("comfy-recipe:first-image-tutorial") and skill_view("comfy-recipe:qwen-image-2-1-prompting"). '
+    'TUTORIAL STEP 1/4. Load skill_view("comfy-recipe:first-image-tutorial") and skill_view("comfy-recipe:qwen-image-2-1-prompting"). '
     'Unless this turn already has its result, call comfy_onboarding action=tutorial step=1 once first (idempotent: it '
     'keeps the lesson, returns readiness and queues this step\'s downloads). '
-    'Start your reply with the line "### 🎓 Tutorial (step 1/6): Generate your first image" (tutorial_heading), '
+    'Start your reply with the line "### 🎓 Tutorial (step 1/4): Generate your first image" (tutorial_heading), '
     'then open Local Recipe/RCPlocal_t2i_qwen_image_2-1.json visibly in the pane so the user sees the text-to-image workflow. '
     + CARD_RULE +
+    'The subject can be a person, a pet, an object or a place (outdoor location or indoor room); note which one: '
+    'it picks the reference-sheet layout in steps 2-3. '
     'Use soft plugin refinement only (preserve the original idea, no invented scene details); refine_prompt on, 25 steps, Lightning LoRA strength 0. '
     'Finish this step\'s model readiness before asking for the image description: if tutorial-1 is downloading, '
     'call comfy_downloads action=wait group=tutorial-1 wait_s=300 until done (one short line per call; no page polling). '
@@ -55,42 +62,97 @@ LESSON = (
     'After Run use comfy_result prompt_id=latest, verify the corresponding image visually, then '
     'comfy_onboarding action=complete prompt_id=<the explicit corresponding prompt id>. '
     'Errors/cached/unrelated jobs are not completion. On success follow the completion instruction (step 2 offer). '
-    'Steps 3-6 are not available yet. Asking for the tutorial in the chat replays it.'
+    'The tutorial has 4 steps. Asking for the tutorial in the chat replays it.'
 )
 LESSON_2 = (
-    'TUTORIAL STEP 2/6. Load skill_view("comfy-recipe:modify-image-tutorial") and '
+    'TUTORIAL STEP 2/4. Load skill_view("comfy-recipe:modify-image-tutorial") and '
     'skill_view("comfy-recipe:qwen-image-2-1-editing") and follow them. '
     'Unless this turn already has its result, call comfy_onboarding action=tutorial step=2 once first (idempotent). '
-    'Start your reply with the line "### 🎓 Tutorial (step 2/6): Modify an image" (tutorial_heading), '
-    'then switch the pane to the Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json tab visibly (Workflows sidebar). '
+    'Start your reply with the line "### 🎓 Tutorial (step 2/4): Modify an image or create a reference sheet" (tutorial_heading), '
+    'then switch the pane to the Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json tab visibly. '
     + CARD_RULE +
-    'Use explicit edit-instruction and preservation refinement by the plugin: refine_prompt off, 4 steps, Lightning LoRA strength 1. '
-    'Tell the user they can attach ONE OR SEVERAL images to this chat and say what to change (the first image is '
-    'edited, the others are references), unless their current message already does. If awaiting_images, wait for them. '
+    'Two paths. (a) Modify an image: explicit edit instruction plus preservation, refine_prompt off, 25 steps, Lightning '
+    'LoRA strength 0. (b) Create a reference sheet of the step-1 subject: comfy_onboarding action=reference_sheet '
+    'kind=<person|pet|object|location|indoor> copies the matching bundled layout sheet into input/; image_1 = the '
+    'subject image, image_2 = that layout sheet (add and wire the second Load Image when the graph has one); '
+    'same settings (layout fidelity). '
+    'Tell the user they can use the step-1 image or attach ONE OR SEVERAL images to this chat and say what to change, '
+    'or ask for a reference sheet, unless their current message already does. If awaiting_images, wait for them. '
     'Before Run: if downloads.group tutorial-2 is not done, comfy_downloads action=wait group=tutorial-2 wait_s=300; '
     'settings (Nodes 2.0) need explicit consent; after a yes call comfy_workflows action=apply_settings '
     'workflow=qwen-image-2-1-i2i, then desktop_preview close + open (never toggle it by hand); '
     'models_without_url block the run until supplied. Then '
     'comfy_onboarding action=tutorial step=2 begin_run=true prompt=<exact edit text entered> workflow_path=<selected i2i path>, '
     'click Run visibly, comfy_result prompt_id=latest, compare output with the inputs visually, then '
-    'comfy_onboarding action=complete prompt_id=<explicit id>. Steps 3-6 are not available yet.'
+    'comfy_onboarding action=complete prompt_id=<explicit id>.'
 )
-LESSONS = {1: LESSON, 2: LESSON_2}
+LESSON_3 = (
+    'TUTORIAL STEP 3/4. Load skill_view("comfy-recipe:first-video-tutorial") and follow it. '
+    'Unless this turn already has its result, call comfy_onboarding action=tutorial step=3 once first (idempotent). '
+    'Start your reply with the line "### 🎓 Tutorial (step 3/4): Create your first video" (tutorial_heading), '
+    'then switch the pane to the Local Recipe/RCPlocal_r2v_video_minimax_h3.json tab visibly. '
+    + CARD_RULE +
+    'Inputs: first frame (<Picture 1>, Load Image #150) = the step-1/2 image; reference sheet (<Picture 3>, Load Image '
+    '#165) = the subject\'s sheet. No sheet yet: make it first in the image-edit tab (comfy_onboarding '
+    'action=reference_sheet kind=<subject kind>, then a visible run there), then come back. The user describes the '
+    'action; an optional short reference video drives the motion and carries its sound (comfy_media convert to <= 73 '
+    'frames). No reference video: bypass Load Video (#155) and Video Info (#157) in the window and set Float (Duration) '
+    'to about 3 s yourself. If awaiting_action, ask for the action in THIS chat. Before Run: if downloads.group '
+    'tutorial-3 is not done, comfy_downloads action=wait group=tutorial-3 wait_s=300. Then '
+    'comfy_onboarding action=tutorial step=3 begin_run=true prompt=<exact prompt entered> workflow_path=<selected r2v path>, '
+    'click Run visibly, comfy_result prompt_id=latest (contact sheet), check it visually, then '
+    'comfy_onboarding action=complete prompt_id=<explicit id>.'
+)
+LESSON_4 = (
+    'TUTORIAL STEP 4/4. Load skill_view("comfy-recipe:add-sound-tutorial") and follow it. '
+    'Unless this turn already has its result, call comfy_onboarding action=tutorial step=4 once first (idempotent). '
+    'Start your reply with the line "### 🎓 Tutorial (step 4/4): Add sound to your video" (tutorial_heading), '
+    'then switch the pane to the Local Recipe/RCPlocal_audio_ace_step1-5_xl_base.json tab visibly. '
+    + CARD_RULE +
+    'The user describes the music or sound; type the tags and set Song Duration to the step-3 video length in the '
+    'window. If awaiting_sound, ask for it in THIS chat. Before Run: if downloads.group tutorial-4 is not done, '
+    'comfy_downloads action=wait group=tutorial-4 wait_s=300. Then comfy_onboarding action=tutorial step=4 begin_run=true '
+    'prompt=<exact tags entered> workflow_path=<selected audio path>, click Run visibly, comfy_result prompt_id=latest, '
+    'check the audio (duration, level), comfy_onboarding action=complete prompt_id=<explicit id>, then '
+    'comfy_media action=mux path=<step-3 video> audio=<ACE output> (the music is mixed under the video\'s own sound) '
+    'and show the mixed video.'
+)
+LESSONS = {1: LESSON, 2: LESSON_2, 3: LESSON_3, 4: LESSON_4}
+
+
+def _offer(next_step: int, what: str) -> str:
+    return (f'Then ONE clarify call with ONE question: "What next? Continue the tutorial, or {what}" with the single '
+            f'choice "Tutorial (step {next_step}/4): {onboarding.STEPS[next_step]["title"]}" (its Other row is the '
+            f'free-text box). Step {next_step} chosen -> comfy_onboarding action=tutorial step={next_step}. ')
+
+
+_WAIT = ('After asking What next, stop: do not poll the page, call elements, or strobe while waiting for the user. '
+         'Read-only title/status checks use desktop_preview read, not elements. Do not ask the ordinary question yet.')
 NEXT_AFTER_1 = (
-    'Show the verified image (MEDIA:<output path>) and a short timing line. Then ONE clarify call with ONE question: '
-    '"What next? Continue the tutorial, or type a description to generate another image with the same workflow." '
-    'with the single choice "Tutorial (step 2/6): Modify an image" (its Other row is the free-text box for a new '
-    'description). Step 2 chosen -> comfy_onboarding action=tutorial step=2. A typed description -> write the prompt, '
-    'type it in the text-to-image tab and Run visibly again (no begin_run needed), show the image, then offer the '
-    'same choice again. After showing the image and asking What next, stop: do not poll the page, call elements, '
-    'or strobe while waiting for the user. Read-only title/status checks use desktop_preview read, not elements. '
-    'Do not ask the ordinary question yet.'
-)
-NEXT_AFTER_2 = ('Show the verified edited image (MEDIA:<output path>) with a one-line summary of the change, say '
-                'the other four tutorial steps are coming later, then ask: What would you like to do?')
+    'Show the verified image (MEDIA:<output path>) and a short timing line. '
+    + _offer(2, 'type a description to generate another image with the same workflow.') +
+    'A typed description -> write the prompt, type it in the text-to-image tab and Run visibly again (no begin_run '
+    'needed), show the image, then offer the same choice again. ' + _WAIT)
+NEXT_AFTER_2 = (
+    'Show the verified image (MEDIA:<output path>) with a one-line summary of the change. '
+    + _offer(3, 'describe another edit.') +
+    'A typed edit -> run it visibly in the same tab, show it, then offer the same choice again. ' + _WAIT)
+NEXT_AFTER_3 = (
+    'Show the verified video (MEDIA:<output path>) with a one-line timing summary. '
+    + _offer(4, 'describe another action for a new video.') +
+    'A typed action -> run it visibly in the same tab, show it, then offer the same choice again. ' + _WAIT)
+CAPABILITIES_OFFER = ('Say briefly that you can guide them through Comfy Recipe’s capabilities and give examples. '
+                      'Examples: create or edit images, make reference sheets and videos, add sound, use their own '
+                      'workflows, check dependencies, troubleshoot failed runs, and refine results. Invite them to '
+                      'name a goal or ask for examples; do not dump a full feature inventory. Load a plugin skill only '
+                      'when the user request matches its trigger, never all skill instructions at session start. ')
+NEXT_AFTER_4 = ('Mux the sound onto the step-3 video (comfy_media action=mux), then show the final video with sound '
+                '(MEDIA:<muxed path>). Say the tutorial is complete (4/4) and any step can be replayed by asking for '
+                'it. ' + CAPABILITIES_OFFER + 'Then ask: What would you like to do?')
+NEXT_AFTER = {1: NEXT_AFTER_1, 2: NEXT_AFTER_2, 3: NEXT_AFTER_3, 4: NEXT_AFTER_4}
 SKIPPED = ('Tutorial skipped. Say in one line that they can come back to it any time by asking for the tutorial in '
-           'this chat, and can bring their own workflows and ask to install their dependencies. '
-           'Then ask: What would you like to do?')
+           'this chat, and can bring their own workflows and ask to install their dependencies. ' +
+           CAPABILITIES_OFFER + 'Then ask: What would you like to do?')
 
 
 def current():
@@ -221,6 +283,25 @@ def _resume_step(tutorial: dict) -> tuple[int, bool]:
     return step, state in ('completed', 'skipped', 'not_offered')
 
 
+def reference_sheet(kind) -> dict:
+    """Copy the bundled layout sheet for this subject kind into the managed input/ folder (identical file reused,
+    a different file never overwritten). Choosing it in the Load Image node stays a visible window action."""
+    if kind not in REFERENCE_SHEETS:
+        raise ValueError('kind must be one of: ' + ', '.join(REFERENCE_SHEETS))
+    src = ASSETS / REFERENCE_SHEETS[kind]
+    if not src.is_file():
+        raise ValueError(f'Bundled reference sheet missing: assets/images/{REFERENCE_SHEETS[kind]}')
+    copied = media.copy_to_input(src, Path(current()['comfyui_dir']) / 'input')
+    return {'kind': kind, 'sheet': REFERENCE_SHEETS[kind], **copied,
+            'instruction': (
+                'Layout reference ready. If input_name was not in the picker before, desktop_preview close + open '
+                'first. In the image-edit tab: image_1 = the subject image, image_2 = input_name (add and wire a '
+                'second Load Image when the graph has only one; standing consent covers it). Prompt: make a '
+                'reference sheet of the subject in <image1> with exactly the panel grid, views, framing and plain '
+                'background of <image2>; take only the layout from <image2>, never its subject, colours or text. '
+                'refine_prompt off, 25 steps, Lightning LoRA strength 0, resolution 1024.')}
+
+
 def apply_preferences(inst: dict, choices: dict, settings_choice) -> dict:
     """Do the approved setup work in the plugin (no window clicks) and spell out the remaining steps in order."""
     approved = [key for key in ('nodes', 'models') if choices[key] == 'now']
@@ -313,10 +394,12 @@ def handle(params, session_id):
                     instruction=LESSONS[step])
     if action == 'skip':
         return dict(onboarding.skip(core.DATA, ident, session_id), instruction=SKIPPED)
+    if action == 'reference_sheet':
+        return reference_sheet(params.get('kind'))
     if action == 'complete':
         state = onboarding.complete(core.DATA, ident, session_id, inst, params.get('prompt_id'))
         step = state['tutorial'].get('step', 1)
-        return dict(state, instruction=NEXT_AFTER_1 if step == 1 else NEXT_AFTER_2)
+        return dict(state, instruction=NEXT_AFTER.get(step, NEXT_AFTER_1))
     raise ValueError('Unknown onboarding action')
 
 
@@ -330,7 +413,10 @@ TUTORIAL_PHRASES = {'tutorial': {'replay': True, 'step': 1}, 'start tutorial': {
                     'resume tutorial': {'resume': True}, 'back to the tutorial': {'resume': True},
                     'continue tutorial': {'resume': True}, 'continue the tutorial': {'resume': True},
                     'tutorial step 2': {'step': 2}, 'modify an image': {'step': 2},
-                    'tutorial (step 2/6): modify an image': {'step': 2}}
+                    'create a reference sheet': {'step': 2},
+                    'tutorial step 3': {'step': 3}, 'create your first video': {'step': 3},
+                    'tutorial step 4': {'step': 4}, 'add sound to your video': {'step': 4}}
+TUTORIAL_PHRASES.update({onboarding.heading(n).lower(): {'step': n} for n in onboarding.STEPS if n > 1})
 
 
 def route(user_message, session_id, *, recipe_session=False):

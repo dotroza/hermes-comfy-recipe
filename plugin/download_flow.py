@@ -1,6 +1,6 @@
 """Which model files to download, in which order, for which ComfyUI - the planning half of downloads.py.
 
-Order: tutorial step 1 files, then tutorial step 2 files, then everything else (smallest first). Works for the bundled
+Order: tutorial step 1 files, then steps 2, 3 and 4, then everything else (smallest first). Works for the bundled
 library (catalog requirements), for a user's own saved workflow (models embedded in node ``properties.models``, the
 same data ComfyUI's Issues tab uses) and for an explicit list. Node packs (``install_nodes``) are queued in
 ComfyUI-Manager through its API - the same request as the window's Install All - only after the user's consent.
@@ -21,7 +21,7 @@ def _key(folder: str, name: str) -> tuple[str, str]:
 
 
 def tutorial_keys() -> dict[str, set]:
-    """{'tutorial-1': {(folder, name)}, 'tutorial-2': {...}} from the catalog requirements of each tutorial step."""
+    """{'tutorial-1': {(folder, name)}, ..., 'tutorial-4': {...}} from the catalog requirements of each tutorial step."""
     by_id = {e['id']: e for e in library.load_catalog()['workflows']}
     out = {}
     for n, step in onboarding.STEPS.items():
@@ -55,7 +55,7 @@ def target(instance: str | None = None) -> tuple[dict, Path, Path]:
 
 
 def queue(progress_dir: Path, models_root: Path, models: list[dict], spawn: bool = True) -> dict:
-    """Queue every model with a URL, grouped tutorial-1 -> tutorial-2 -> other; one progress card for all."""
+    """Queue every model with a URL, grouped tutorial-1 -> ... -> tutorial-4 -> other; one progress card for all."""
     keys = tutorial_keys()
     grouped: dict[str, list] = {}
     for m in models:
