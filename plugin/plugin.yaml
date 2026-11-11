@@ -1,7 +1,7 @@
 name: comfy-recipe
 version: "0.4.0"
 description: >
-  Comfy Recipe: installs its own ComfyUI on first use (one question, no setup skills needed), then the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
+  Comfy Recipe: offers its own ComfyUI install on first use, then the agent works in your ComfyUI window next to the chat - opens workflows, types prompts,
   clicks Run - while you watch or step in. Plus headless runs of saved UI workflows (subgraphs included,
   .json never rewritten) with a per-stage timing breakdown, video contact sheets and a timing log.
 author: dotroza

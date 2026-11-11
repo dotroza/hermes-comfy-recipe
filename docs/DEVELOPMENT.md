@@ -23,7 +23,8 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
   (equal/lower ranks can't overwrite it; titles must be unique → fall back to a suffixed variant on ValueError).
   First real request: `set_session_title(sid, "")` (user-rank clear) if the title still starts with the placeholder →
   Hermes titles that request immediately.
-- Uses `hermes_state_registry.acquire()/release()` — a private import the validator warns about; keep it best-effort.
+- Uses the public `hermes_state.SessionDB(db_path=get_hermes_home() / "state.db")` API and closes the owned
+  handle in `finally`. Never import the private registry or share its lifecycle. Failures remain best-effort.
 
 ## Settings
 - `config_schema:` in plugin.yaml renders a form under Settings → Plugins; read with `ctx.get_config(key)`
@@ -62,7 +63,7 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
   The offline six-workflow fixture reduces folder requests from 25 to 6 and size lookups from 21 to 16; these are
   request budgets, not measured end-to-end startup timings. Regression tests live in `tests/test_setup_optimizations.py`
   and `tests/test_onboarding_dependencies.py`.
-- Standard-library tests: `python -m unittest discover -s tests -v`; authoring details in `docs/WORKFLOW_LIBRARY.md`.
+- Isolated tests: `python scripts/run_tests.py`; authoring details in `docs/WORKFLOW_LIBRARY.md`.
 
 ## Onboarding
 - See `docs/ONBOARDING.md` for state, migration, replay and consent contracts.
@@ -79,8 +80,7 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
 ## Fast session start
 - Port probing: on Windows a refused localhost connect takes ~2 s, so a sequential HTTP probe of 4 closed ports cost
   8 s. `comfy_client.port_open` (0.3 s TCP check) + `alive_many` (parallel) brought `comfy_instances` to ~0.3 s.
-- The kickoff hook resolves the instance and opens the pane itself: `tools.desktop_ui.emit("preview.open",
-  {"url", "label"})` routes to the window running the turn (needs `HERMES_UI_SESSION_ID` in the session env; check
-  `desktop_ui.available()`). The model then gets the facts and only does one `drive_preview elements` before the card.
-  Skills load on the first real request, not at kickoff. Private imports again - keep it best-effort with a fallback.
+- The kickoff hook resolves instance facts and instructs the agent to call `desktop_preview open`, then one
+  `drive_preview elements` before the card. Never emit core renderer events through private modules; the public
+  plugin event API is namespaced, not a route for spoofing core events. Skills load on the first real request.
 - Desktop half: read the motto in parallel with `session.new`, cache it, warm the cache at register.

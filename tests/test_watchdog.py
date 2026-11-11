@@ -1,5 +1,6 @@
 """stop_with_hermes: the watchdog stops ComfyUI once every recorded Hermes owner process is gone."""
 import tempfile
+import itertools
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -18,7 +19,8 @@ class WatchdogTests(unittest.TestCase):
         with patch.object(installer, '_comfy_running', return_value=running), \
              patch.object(installer, '_pid_alive', side_effect=lambda p, m=None: p in alive_pids), \
              patch.object(installer, 'stop', return_value={'stopped': True}) as stop, \
-             patch.object(installer.time, 'sleep'):
+             patch.object(installer.time, 'sleep'), \
+             patch.object(installer.time, 'time', side_effect=itertools.count(1)):
             r = installer.watch(self.d, poll=0, idle_exit_s=0, max_loops=loops)
         return r, stop
 

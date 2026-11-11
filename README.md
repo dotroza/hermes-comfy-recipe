@@ -30,7 +30,7 @@ A visible Comfy Recipe session inside Hermes: generate an image, refine the fram
 | `comfy_setup` | check / check_dir / install / status / start / stop / restart / use_existing / reset / adopt for Comfy Recipe's own ComfyUI. Reset forgets the choice without deleting files; adopt reuses an existing or moved managed install. It only starts, stops or restarts its own install. |
 | `comfy_onboarding` | Managed-install setup preferences and the four-step tutorial: start, resume, replay, skip and verify a fresh run. Supplies bundled reference-sheet layouts for people, pets, objects, outdoor places and interiors. |
 | `comfy_downloads` | Resumable background model downloads with live chat progress cards and a status-bar chip; start / status / wait / cancel, plus approved node-pack installation through ComfyUI-Manager's API and installed-state checks. Supports bundled workflows, saved workflows with declared model links, and explicit model lists. |
-| **Comfy Recipe** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin itself finds the running ComfyUI and opens it in the pane at the start of the turn (no model round trips), then the agent reports instance, GPU and active workflow. The session is named after your first real request. |
+| **Comfy Recipe** sidebar entry (+ Ctrl/⌘+K → *New ComfyUI session*) | Opens a ComfyUI session. The plugin finds the running ComfyUI; the agent opens its controllable preview using `desktop_preview`, then reports instance, GPU and active workflow. The session is named after your first real request. |
 | `comfy_instances` | With its own install: only that one (isolated from your other ComfyUIs). With *use existing*: finds ComfyUI Desktop, servers on ports 8188–8190 / 8000 and any `extra_urls`; switches automatically if the remembered one is down and exactly one other is running; if none is running it asks you to start yours. |
 | `comfy_workflows` | Lists saved workflows, describes one (subgraph controls, Load Image nodes, prompt target), shows measured timings. |
 | `comfy_templates` | Searches ComfyUI's built-in templates for what you want to make and proposes the best ones with thumbnail, inputs, download size and **readiness** (installed vs missing models with download links, missing custom nodes). Ready ones rank first. Opens them in the window or saves a copy to your workflows. |
@@ -110,6 +110,7 @@ Then fully restart Hermes. In the desktop app: **Ctrl/⌘+K → Reload desktop p
 **Settings → Plugins** (the desktop half of a plugin is off by default).
 
 Requirements
+- Hermes Agent **0.23.1 or later** (`requires_hermes: ">=0.23.1"`); validated on 0.23.1, not claimed compatible with earlier releases.
 - Hermes desktop for visible side-by-side sessions.
 - A recent ComfyUI frontend: installed by managed setup, or already running when using an existing instance.
 - Workflow-specific models, custom nodes and suitable hardware; base installation does not include model weights.
@@ -117,6 +118,49 @@ Requirements
 - Headless runs only: [comfy-cli](https://github.com/Comfy-Org/comfy-cli) (`pip install comfy-cli`). It is called as a
   separate process; this repo contains none of its (GPL-3.0) code. Visible sessions work without it.
 - Media preparation, video checks and soundtrack muxing: `ffmpeg` / `ffprobe` on PATH.
+
+## Security, privacy and external activity
+
+Installing the plugin does not itself authorize a ComfyUI installation, model downloads, custom-node installation
+or a paid generation. Those actions need user consent. No automatic approval or Hermes guard bypass is used;
+without an interactive clarification tool, first-run instructions ask in chat and stop for an answer.
+
+- **Network:** discovery probes localhost ComfyUI ports and explicitly configured `extra_urls`. The selected ComfyUI
+  receives workflows, prompts and uploaded inputs. Setup contacts official GitHub sources (`Comfy-Org/ComfyUI`,
+  `astral-sh/uv`), Python distributions downloaded by uv, Python package indexes and `download.pytorch.org`.
+  Model readiness/downloads contact URLs declared by workflows or supplied explicitly (bundled models use
+  Hugging Face; redirects may use its CDN). Node-pack installation uses ComfyUI-Manager and its registry/upstream
+  repositories. These upstream components have their own network and dependency policies.
+- **Downloaded code:** if no uv is installed, bootstrap downloads **uv 0.13.7** from its official GitHub release,
+  verifies the archive against SHA-256 values committed in `plugin/installer.py`, and copies only the expected
+  executable. Unsupported bootstrap architectures fail instead of guessing. Existing uv installations are reused.
+  uv installs Python 3.13 and resolves ComfyUI/PyTorch dependencies in a separate venv; their artifacts are handled
+  by uv, not vendored in this plugin. ComfyUI uses the latest release tag (default branch only if release lookup
+  fails). Approved custom nodes run third-party code with the user's local permissions; this is not a sandbox.
+- **Local access outside plugin data:** discovery reads process command lines, ComfyUI Desktop / StabilityMatrix
+  settings and selected installation metadata. Workflow/model inspection reads the selected ComfyUI directories,
+  model inventories and optional `extra_model_paths.yaml`. Approved model sharing references those folders without
+  copying weights. Media tools read user-selected source files, write derived files beside them and optionally
+  copy them to ComfyUI `input/`. Library installation writes protected workflow copies and startup support into
+  the managed ComfyUI; existing instances require an explicit library install. Approved frontend settings are
+  written through the selected ComfyUI. Session naming reads/writes the calling session's title through the
+  public `SessionDB` API in the **active Hermes profile**.
+- **Commands and background processes:** setup invokes uv, Python, git when available, package installation and
+  hardware/process utilities. Headless conversion invokes an external Python with comfy-cli. Media tools invoke
+  ffmpeg/ffprobe. Installer, download/node workers, ComfyUI and the owner watchdog may run beyond a chat turn;
+  logs and progress are stored locally. Only the managed ComfyUI is started/stopped by this plugin. By default
+  the watchdog stops it when its Hermes owners exit; `stop_with_hermes=false` keeps it running.
+- **Stored data:** instance choices, installation paths, tutorial state, download queues, run/timing logs and
+  contact sheets are local. Headless run records include prompts and overrides, and ComfyUI outputs may include
+  workflow/prompt metadata. Tutorial prompt matching stores a hash. Treat these files as potentially sensitive;
+  reset forgets setup choices, **not** files, logs or generated outputs.
+- **Credentials and cloud runs:** the plugin declares no secret settings, required environment credentials or
+  OAuth client. It does not read credential stores or implement token refresh. Cloud workflow authentication
+  belongs to ComfyUI's official API-node sign-in; use that UI, never give credentials to the agent. Paid runs send
+  prompts/media to the selected provider and require explicit approval for each execution.
+- **Telemetry and updates:** the plugin adds no telemetry or usage reporting and never replaces its own code.
+  Catalog updates arrive only through reviewed SHA-pin updates and `hermes plugins update comfy-recipe`.
+  ComfyUI, custom nodes and providers are separate upstream software with their own policies.
 
 ## Settings (Settings → Plugins → Comfy Recipe)
 
@@ -161,7 +205,7 @@ docs/DEVELOPMENT.md     how the plugin hooks into Hermes (reload rules, hook, ti
 From the repository root:
 
 ```bash
-python -m unittest discover -s tests -v
+python scripts/run_tests.py
 python -m compileall -q plugin tests
 hermes plugins validate ./plugin
 ```
@@ -176,10 +220,13 @@ visible-session flow was proven in the Hermes desktop app; this version's core
 functions are tested standalone and the in-app session was verified (sidebar entry, session card, settings). Other platforms are coded for (paths per OS)
 but not yet verified — reports welcome.
 
-Known limitation: naming the session after the first request uses a Hermes internal (`hermes_state_registry`), which the
-validator flags as a private import; if a Hermes update changes it, only the session title falls back to Hermes' default.
-Likewise the instant pane opening uses `tools.desktop_ui` / `gateway.session_context`; if they change, the agent opens
-the pane itself (a few seconds slower).
+Session naming uses the public `hermes_state.SessionDB` API with an explicitly profile-scoped path and deterministic
+close; cosmetic failures leave Hermes' default naming in place. Pane opening uses the agent's `desktop_preview`
+tool, not a private renderer event bridge. It may take an extra model round trip compared with the former fast path.
+
+The test runner uses a disposable Hermes profile and rejects detached workers outside its sandbox. Fixtures do not
+establish fresh installation or successful generation on every OS/provider. See [catalog submission](docs/CATALOG_SUBMISSION.md)
+for the release checklist, disclosure draft and exact-SHA entry generation after you commit and push.
 
 ## License
 

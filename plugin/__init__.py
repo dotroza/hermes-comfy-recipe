@@ -507,19 +507,6 @@ MOTTO_NOTE = ("[comfy-recipe] The user just opened a ComfyUI session from the Co
               "\"[ComfyUI session]\" marker in their message is only a motto - it is NOT a request, do not comment on it.\n")
 
 
-def _open_pane_now(url: str) -> bool:
-    """Open the preview pane on ComfyUI right away, from the hook, before the model's first token (same event the
-    desktop_preview tool emits, routed to the window running this turn). Best-effort: False = let the model open it."""
-    try:
-        from gateway.session_context import get_session_env
-        from tools import desktop_ui
-        if not desktop_ui.available() or not get_session_env("HERMES_UI_SESSION_ID", ""):
-            return False
-        return bool(desktop_ui.emit("preview.open", {"url": url, "label": "ComfyUI"}))
-    except Exception:
-        return False
-
-
 FIRST_RUN = (
     "FIRST RUN of Comfy Recipe: no ComfyUI has been set up for it yet. The user may never have used ComfyUI. Facts from "
     "the plugin (comfy_setup check): {facts}\n"
@@ -601,8 +588,8 @@ def _first_run_text() -> str:
 
 
 def _session_start(personal_skill: str) -> str:
-    """Kickoff turn. The plugin already resolved the instance and (normally) opened the pane, so the model needs ONE
-    tool call before the card. Skills are loaded on the first real request, not now."""
+    """Resolve instance facts; the agent opens its controllable preview through the public tool.
+    Skills are loaded on the first real request, not now."""
     try:
         _sync_settings()
         phase = core.setup_state()
@@ -639,14 +626,11 @@ def _session_start(personal_skill: str) -> str:
         except Exception:
             pass
     provision = core.ensure_managed_library()
-    opened = _open_pane_now(row["url"])
+
     facts = {"name": row["name"], "launcher": row.get("launcher"), "url": row["url"], "argv": row.get("argv"),
              "devices": row.get("devices"), "switched": inst.get("switched", {}).get("reason"),
              "workflow_library": provision}
-    step = ("The plugin has ALREADY opened that ComfyUI in the preview pane - do not call comfy_instances or "
-            "desktop_preview open. Your only tool call now: ONE drive_preview elements call with max 5; its result carries "
-            "the page title '<workflow name> - ComfyUI' (0 elements or 'no page' = still loading: terminal sleep 3, retry "
-            "once; if it still has no page, call desktop_preview open with the url above).") if opened else (
+    step = (
             f"Call desktop_preview open with url {row['url']} (label ComfyUI), then ONE drive_preview elements call with "
             "max 5; its result carries the page title '<workflow name> - ComfyUI'.")
     return (MOTTO_NOTE +
@@ -713,10 +697,11 @@ def _text(content) -> str:
 
 
 def _with_session_db(fn):
-    """Run fn(db) on Hermes' shared SessionDB handle; never fatal (titles are cosmetic)."""
+    """Own a short-lived public SessionDB for the active profile; titles are best-effort."""
     try:
-        import hermes_state_registry as reg
-        db = reg.acquire()
+        from hermes_constants import get_hermes_home
+        from hermes_state import SessionDB
+        db = SessionDB(db_path=get_hermes_home() / "state.db")
     except Exception:
         return None
     try:
@@ -725,7 +710,7 @@ def _with_session_db(fn):
         return None
     finally:
         try:
-            reg.release(db)
+            db.close()
         except Exception:
             pass
 

@@ -12,6 +12,7 @@ Layout of an install folder (default <Documents>/ComfyRecipeEnv):
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -28,6 +29,17 @@ from urllib import request
 
 REPO = "https://github.com/Comfy-Org/ComfyUI"
 PYTHON_VERSION = "3.13"
+# Official upstream release checksums, reviewed with the plugin's pinned source.
+# https://github.com/astral-sh/uv/releases/download/0.13.7/sha256.sum
+UV_VERSION = "0.13.7"
+UV_SHA256 = {
+    "uv-aarch64-apple-darwin.tar.gz": "81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731",
+    "uv-aarch64-pc-windows-msvc.zip": "505d9e65e7692bac3ddf98c66754aa26c5050c409c184af30a881a0a72cc85e3",
+    "uv-aarch64-unknown-linux-gnu.tar.gz": "71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc",
+    "uv-x86_64-apple-darwin.tar.gz": "20c47e4c1f630b8abaff8c291fa9b9aa300fef92c4fbff95adf198b55287cda7",
+    "uv-x86_64-pc-windows-msvc.zip": "0cdc5b38fe5a8168ed6a25814f5ba43c21d313dd3187314fccb37b7cec46e021",
+    "uv-x86_64-unknown-linux-gnu.tar.gz": "c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83",
+}
 PORT_RANGE = range(8190, 8200)
 DOWNLOAD_GB = 6      # PyTorch CUDA wheels dominate
 DISK_NEEDED_GB = 15  # install + uv cache + room for a first model
@@ -282,32 +294,53 @@ def find_uv(tools_dir: Path | None = None) -> str | None:
 
 def _download_uv(tools_dir: Path, log) -> str:
     m = platform.machine().lower()
-    arch = "aarch64" if m in ("arm64", "aarch64") else "x86_64"
+    if m in ("arm64", "aarch64"):
+        arch = "aarch64"
+    elif m in ("amd64", "x86_64"):
+        arch = "x86_64"
+    else:
+        raise RuntimeError(f"Unsupported uv bootstrap architecture: {m}; install uv from its official source")
     if IS_WIN:
         name = f"uv-{arch}-pc-windows-msvc.zip"
     elif sys.platform == "darwin":
         name = f"uv-{arch}-apple-darwin.tar.gz"
-    else:
+    elif sys.platform.startswith("linux"):
         name = f"uv-{arch}-unknown-linux-gnu.tar.gz"
-    url = f"https://github.com/astral-sh/uv/releases/latest/download/{name}"
+    else:
+        raise RuntimeError(f"Unsupported uv bootstrap platform: {sys.platform}")
+    expected = UV_SHA256[name]
+    url = f"https://github.com/astral-sh/uv/releases/download/{UV_VERSION}/{name}"
     log(f"downloading {url}")
     tools_dir.mkdir(parents=True, exist_ok=True)
-    arc = tools_dir / name
-    request.urlretrieve(url, arc)
-    if name.endswith(".zip"):
-        with zipfile.ZipFile(arc) as z:
-            z.extractall(tools_dir)
-    else:
-        import tarfile
-        with tarfile.open(arc) as t:
-            t.extractall(tools_dir)
     exe = "uv.exe" if IS_WIN else "uv"
-    hit = next(tools_dir.rglob(exe), None)
-    if not hit:
-        raise RuntimeError("uv download did not contain " + exe)
     target = tools_dir / exe
-    if hit != target:
-        shutil.copy2(hit, target)
+    # Never extract archive paths or links. Only the verified release's expected executable
+    # is copied to a fixed filename, atomically, so failed downloads cannot leave runnable code.
+    with tempfile.TemporaryDirectory(dir=tools_dir) as td:
+        arc = Path(td) / name
+        request.urlretrieve(url, arc)
+        with arc.open("rb") as stream:
+            actual = hashlib.file_digest(stream, "sha256").hexdigest()
+        if actual != expected:
+            raise RuntimeError(f"uv checksum mismatch for {name}: expected {expected}, got {actual}")
+        staged = Path(td) / exe
+        if name.endswith(".zip"):
+            with zipfile.ZipFile(arc) as z:
+                hits = [i for i in z.infolist() if i.filename == exe and not i.is_dir()]
+                if len(hits) != 1:
+                    raise RuntimeError("uv archive must contain exactly one regular file " + exe)
+                with z.open(hits[0]) as source, staged.open("wb") as dest:
+                    shutil.copyfileobj(source, dest)
+        else:
+            import tarfile
+            with tarfile.open(arc) as t:
+                member_name = name.removesuffix(".tar.gz") + "/uv"
+                hits = [i for i in t.getmembers() if i.name == member_name]
+                if len(hits) != 1 or not hits[0].isfile():
+                    raise RuntimeError("uv archive must contain exactly one regular file " + member_name)
+                with t.extractfile(hits[0]) as source, staged.open("wb") as dest:
+                    shutil.copyfileobj(source, dest)
+        staged.replace(target)
     if not IS_WIN:
         target.chmod(0o755)
     return str(target)
@@ -501,15 +534,15 @@ def _host_python() -> str:
 
 
 def _detached(args, out_path: Path, cwd: str):
-    out = open(out_path, "ab")
-    kw = dict(stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, cwd=cwd, env=_clean_env(), close_fds=True)
-    if IS_WIN:
-        base = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-        try:  # survive the Hermes process (its job object) when allowed
-            return subprocess.Popen(args, creationflags=base | 0x01000000, **kw)  # CREATE_BREAKAWAY_FROM_JOB
-        except OSError:
-            return subprocess.Popen(args, creationflags=base, **kw)
-    return subprocess.Popen(args, start_new_session=True, **kw)
+    with open(out_path, "ab") as out:
+        kw = dict(stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, cwd=cwd, env=_clean_env(), close_fds=True)
+        if IS_WIN:
+            base = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+            try:  # survive the Hermes process (its job object) when allowed
+                return subprocess.Popen(args, creationflags=base | 0x01000000, **kw)  # CREATE_BREAKAWAY_FROM_JOB
+            except OSError:
+                return subprocess.Popen(args, creationflags=base, **kw)
+        return subprocess.Popen(args, start_new_session=True, **kw)
 
 
 def _pid_alive(pid, must_contain: str | None = None) -> bool:

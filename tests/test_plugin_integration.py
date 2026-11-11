@@ -105,7 +105,7 @@ class ToolTests(unittest.TestCase):
     def test_running_session_calls_managed_guard(self):
         inst={'any_running':True,'instances':[{'name':'test','active':True,'url':'http://test'}]}
         with patch.object(plugin,'_sync_settings'), patch.object(core,'setup_state',return_value={'phase':'running'}), \
-             patch.object(core,'instances',return_value=inst), patch.object(plugin,'_open_pane_now',return_value=False), \
+             patch.object(core,'instances',return_value=inst), patch.object(core,'bind_to_hermes'), \
              patch.object(core,'ensure_managed_library',return_value={'status':'skipped'}) as ensure:
             text=plugin._session_start('')
         ensure.assert_called_once(); self.assertIn('ComfyUI facts',text)
