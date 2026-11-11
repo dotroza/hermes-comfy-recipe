@@ -162,7 +162,7 @@ tools, hooks and skill registration require a full Hermes restart after updates;
 
 
 Developed on Windows 11 with ComfyUI 0.44 / frontend 1.57 on a 2-GPU machine. The
-visible-session flow was proven in the Hermes desktop app in the predecessor plugin; this generic version's core
+visible-session flow was proven in the Hermes desktop app; this version's core
 functions are tested standalone and the in-app session was verified (sidebar entry, session card, settings). Other platforms are coded for (paths per OS)
 but not yet verified — reports welcome.
 
