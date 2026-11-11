@@ -13,15 +13,9 @@ class StartupTabsTests(unittest.TestCase):
           extension.init();
           const tabs = JSON.parse(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
           assert.equal(tabs.activeIndex, 0);
-          assert.equal(tabs.paths[0], 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json');
-          assert.equal(tabs.paths.length, 5);
-          assert.deepEqual(new Set(tabs.paths), new Set([
-            'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json',
-            'workflows/Comfy Recipe/RCP_qwen_image_2_1_i2i.json',
-            'workflows/Comfy Recipe/RCP_audio_ace_step1_5_xl_base.json',
-            'workflows/Comfy Recipe/RCP_video_minimax_h3_r2v.json',
-            'workflows/Comfy Recipe/RCP_pixal3d_ImgTo3D.json'
-          ]));
+          assert.equal(tabs.paths[0], 'workflows/Local Recipe/RCPlocal_t2i_qwen_image_2-1.json');
+          assert.equal(tabs.paths.length, 10);
+          assert.deepEqual(new Set(tabs.paths), new Set(EXPECTED_PATHS));
           assert.equal(JSON.parse(localStorage.getItem('Comfy.Workflow.LastActivePath:personal')).path, tabs.paths[0]);
         """)
 
@@ -34,16 +28,10 @@ class StartupTabsTests(unittest.TestCase):
           // Native restore prefers sessionStorage to the localStorage fallback.
           const tabs = JSON.parse(sessionStorage.getItem('Comfy.Workflow.OpenPaths:fresh-client') ||
             localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
-          assert.equal(tabs.paths.length, 5);
-          assert.deepEqual(new Set(tabs.paths), new Set([
-            'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json',
-            'workflows/Comfy Recipe/RCP_qwen_image_2_1_i2i.json',
-            'workflows/Comfy Recipe/RCP_audio_ace_step1_5_xl_base.json',
-            'workflows/Comfy Recipe/RCP_video_minimax_h3_r2v.json',
-            'workflows/Comfy Recipe/RCP_pixal3d_ImgTo3D.json'
-          ]));
+          assert.equal(tabs.paths.length, 10);
+          assert.deepEqual(new Set(tabs.paths), new Set(EXPECTED_PATHS));
           assert.equal(tabs.activeIndex, 0);
-          assert.equal(tabs.paths[0], 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json');
+          assert.equal(tabs.paths[0], 'workflows/Local Recipe/RCPlocal_t2i_qwen_image_2-1.json');
           assert.equal(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'), JSON.stringify(tabs));
           assert.equal(JSON.parse(localStorage.getItem('Comfy.Workflow.LastActivePath:personal')).path, tabs.paths[0]);
         """)
@@ -55,7 +43,7 @@ class StartupTabsTests(unittest.TestCase):
           extension.init();
           const tabs = JSON.parse(localStorage.getItem('Comfy.Workflow.LastOpenPaths:personal'));
           assert.ok(tabs, 'UI preferences must not prevent first-launch tabs');
-          assert.equal(tabs.paths[0], 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json');
+          assert.equal(tabs.paths[0], 'workflows/Local Recipe/RCPlocal_t2i_qwen_image_2-1.json');
           assert.equal(localStorage.getItem('Comfy.Workflow.AutoSave'), 'true');
         """)
 
@@ -69,7 +57,7 @@ class StartupTabsTests(unittest.TestCase):
     def test_existing_tabs_drafts_and_legacy_sessions_are_untouched(self):
         self.run_browser_check("""
           for (const [key, value] of [
-            ['Comfy.Workflow.LastOpenPaths:personal', '{"paths":["mine"],"activeIndex":0}'],
+            ['Comfy.Workflow.LastOpenPaths:personal', '{"paths":["workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json"],"activeIndex":0}'],
             ['Comfy.Workflow.DraftIndex.v2:personal', '{"order":["draft"],"entries":{}}'],
             ['workflow', '{"nodes":[]}']
           ]) {
@@ -151,6 +139,8 @@ class StartupTabsTests(unittest.TestCase):
               const source = SOURCE.replace(/^import .*;?\s*$/mg, '');
               vm.runInNewContext(source, { app, localStorage, sessionStorage, console });
               ASSERTIONS
-            """.replace('SOURCE', json.dumps(source)).replace('ASSERTIONS', assertions)
+            """.replace('SOURCE', json.dumps(source)).replace('ASSERTIONS', assertions).replace(
+                'EXPECTED_PATHS', json.dumps(['workflows/' + e.get('folder', library.FOLDER) + '/' +
+                                             Path(e['file']).name for e in library.load_catalog()['workflows']]))
             result = subprocess.run(['node', '-e', script], text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

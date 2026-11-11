@@ -1,0 +1,435 @@
+{
+  "id": "567c31c6-d9f1-5aba-876d-504f7458092f",
+  "revision": 0,
+  "last_node_id": 18,
+  "last_link_id": 15,
+  "nodes": [
+    {
+      "id": 10,
+      "type": "LoadImage",
+      "pos": [
+        -60,
+        -10
+      ],
+      "size": [
+        290,
+        340
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "3a02099e4f698f349c1b058f3c2fc0c3fd5721a31cf4ddca6ee128fccff2b0f6.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "3a02099e4f698f349c1b058f3c2fc0c3fd5721a31cf4ddca6ee128fccff2b0f6.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 11,
+      "type": "LoadImage",
+      "pos": [
+        -60,
+        410
+      ],
+      "size": [
+        290,
+        340
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            10
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "58ead8c3f256b63eccdeda73a2a21e77989bcb75354b25a33c548cd3a05df4f5.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "58ead8c3f256b63eccdeda73a2a21e77989bcb75354b25a33c548cd3a05df4f5.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 15,
+      "type": "ByteDanceSeedreamNodeV2",
+      "pos": [
+        340,
+        -10
+      ],
+      "size": [
+        480,
+        430
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "prompt",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "widget": {
+            "name": "model"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "size_preset",
+          "name": "model.size_preset",
+          "type": "COMBO",
+          "widget": {
+            "name": "model.size_preset"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "width",
+          "name": "model.width",
+          "type": "INT",
+          "widget": {
+            "name": "model.width"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "height",
+          "name": "model.height",
+          "type": "INT",
+          "widget": {
+            "name": "model.height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "image_1",
+          "name": "model.images.image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 9
+        },
+        {
+          "localized_name": "image_2",
+          "name": "model.images.image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 10
+        },
+        {
+          "localized_name": "image_3",
+          "name": "model.images.image_3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "watermark",
+          "name": "watermark",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "watermark"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "thinking",
+          "name": "thinking",
+          "shape": 7,
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "thinking"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "title": "Seedream 5.0 Pro",
+      "properties": {
+        "Node name for S&R": "ByteDanceSeedreamNodeV2"
+      },
+      "widgets_values": [
+        "Transform the trail sneaker in image 1 by applying the FW26 tech pack card in image 2 exactly as specified, zone by zone.",
+        "seedream 5.0 pro",
+        "(2K) 2048x2048 (1:1)",
+        2048,
+        2048,
+        1322031059,
+        "randomize",
+        false,
+        true
+      ],
+      "widgets_values_named": {
+        "prompt": "Transform the trail sneaker in image 1 by applying the FW26 tech pack card in image 2 exactly as specified, zone by zone.",
+        "model": "seedream 5.0 pro",
+        "model.size_preset": "(2K) 2048x2048 (1:1)",
+        "model.width": 2048,
+        "model.height": 2048,
+        "seed": 1322031059,
+        "control_after_generate": "randomize",
+        "watermark": false,
+        "thinking": true
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 16,
+      "type": "SaveImageAdvanced",
+      "pos": [
+        900,
+        -10
+      ],
+      "size": [
+        400,
+        376
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "bit_depth",
+          "name": "format.bit_depth",
+          "type": "COMBO",
+          "widget": {
+            "name": "format.bit_depth"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "input_color_space",
+          "name": "format.input_color_space",
+          "type": "COMBO",
+          "widget": {
+            "name": "format.input_color_space"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "title": "Save — canyon fade",
+      "properties": {
+        "Node name for S&R": "SaveImageAdvanced"
+      },
+      "widgets_values": [
+        "Seedream5.0_Pro",
+        "png",
+        "8-bit",
+        "sRGB"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "Seedream5.0_Pro",
+        "format": "png",
+        "format.bit_depth": "8-bit",
+        "format.input_color_space": "sRGB"
+      }
+    }
+  ],
+  "links": [
+    [
+      11,
+      15,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      10,
+      0,
+      15,
+      5,
+      "IMAGE"
+    ],
+    [
+      10,
+      11,
+      0,
+      15,
+      6,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.8390545288824046,
+      "offset": [
+        457.77825542337496,
+        194.93818577868427
+      ]
+    },
+    "linearData": {
+      "inputs": [
+        [
+          "10",
+          "image",
+          {
+            "height": 197
+          }
+        ],
+        [
+          "11",
+          "image",
+          {
+            "height": 195
+          }
+        ],
+        [
+          "15",
+          "prompt",
+          {
+            "height": 116
+          }
+        ],
+        [
+          "15",
+          "model.size_preset"
+        ]
+      ],
+      "outputs": [
+        "16"
+      ]
+    },
+    "linearMode": true
+  },
+  "version": 0.4
+}

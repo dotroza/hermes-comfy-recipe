@@ -13,8 +13,10 @@ SETUP = (
     'Keep the setup introduction to one short sentence, then use ONE clarify form with independent questions. '
     'Do not print an inventory, per-workflow caveat list, or an untested-execution disclaimer. Put only actionable '
     'blockers and consent disclosures briefly in the relevant question. '
-    'Before the form, visibly select Comfy Recipe/RCP_qwen_image_2_1_t2i.json (including when localhost restored '
+    'Before the form, visibly select Local Recipe/RCPlocal_t2i_qwen_image_2-1.json (including when localhost restored '
     'an old installation\'s tab) and keep it selected; whenever the pane is reopened during setup, return to the text-to-image tab. '
+    'Local Recipe contains local workflows; Cloud Recipe contains paid ComfyUI API nodes, requiring account authentication and credits, not local weights. '
+    'Setup may copy cloud definitions but must never queue paid runs; obtain explicit per-run consent before using them. '
     'Nodes: install missing node packs now (recommended) vs on use. '
     'Models: (1) "Download on use (recommended): each tutorial step downloads its own models when you reach it; other '
     'workflows download theirs when you use them (I ask first)" vs (2) "Download everything now (<verified total GB>)". '
@@ -39,9 +41,9 @@ LESSON = (
     'Unless this turn already has its result, call comfy_onboarding action=tutorial step=1 once first (idempotent: it '
     'keeps the lesson, returns readiness and queues this step\'s downloads). '
     'Start your reply with the line "### 🎓 Tutorial (step 1/6): Generate your first image" (tutorial_heading), '
-    'then open Comfy Recipe/RCP_qwen_image_2_1_t2i.json visibly in the pane so the user sees the text-to-image workflow. '
+    'then open Local Recipe/RCPlocal_t2i_qwen_image_2-1.json visibly in the pane so the user sees the text-to-image workflow. '
     + CARD_RULE +
-    'Prompt writing is by Hermes; leave refine_prompt off. '
+    'Use soft plugin refinement only (preserve the original idea, no invented scene details); refine_prompt on, 25 steps, Lightning LoRA strength 0. '
     'Finish this step\'s model readiness before asking for the image description: if tutorial-1 is downloading, '
     'call comfy_downloads action=wait group=tutorial-1 wait_s=300 until done (one short line per call; no page polling). '
     'On completion immediately refresh the Missing Models panel and verify with desktop_preview read that the '
@@ -60,8 +62,9 @@ LESSON_2 = (
     'skill_view("comfy-recipe:qwen-image-2-1-editing") and follow them. '
     'Unless this turn already has its result, call comfy_onboarding action=tutorial step=2 once first (idempotent). '
     'Start your reply with the line "### 🎓 Tutorial (step 2/6): Modify an image" (tutorial_heading), '
-    'then switch the pane to the Comfy Recipe/RCP_qwen_image_2_1_i2i.json tab visibly (Workflows sidebar). '
+    'then switch the pane to the Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json tab visibly (Workflows sidebar). '
     + CARD_RULE +
+    'Use explicit edit-instruction and preservation refinement by the plugin: refine_prompt off, 4 steps, Lightning LoRA strength 1. '
     'Tell the user they can attach ONE OR SEVERAL images to this chat and say what to change (the first image is '
     'edited, the others are references), unless their current message already does. If awaiting_images, wait for them. '
     'Before Run: if downloads.group tutorial-2 is not done, comfy_downloads action=wait group=tutorial-2 wait_s=300; '
@@ -203,8 +206,9 @@ def context(session_id):
 def _working_copy_pattern(workflow_id: str) -> tuple[str, str]:
     entry = next(e for e in library.load_catalog()['workflows'] if e['id'] == workflow_id)
     stem = re.escape(Path(entry['file']).stem)
-    return (re.escape(library.FOLDER) + '/' + stem + r'(?:-v\d+\.\d+\.\d+)?\.json',
-            library.FOLDER + '/' + Path(entry['file']).name)
+    folder = library.publication_folder(entry)
+    return (re.escape(folder) + '/' + stem + r'(?:-v\d+\.\d+\.\d+)?\.json',
+            folder + '/' + Path(entry['file']).name)
 
 
 def _resume_step(tutorial: dict) -> tuple[int, bool]:

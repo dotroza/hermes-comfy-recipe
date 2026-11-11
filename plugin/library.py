@@ -9,11 +9,20 @@ ROOT = Path(__file__).resolve().parent / 'workflows'
 FOLDER = 'Comfy Recipe'
 
 
+def publication_folder(entry: dict) -> str:
+    """One portable userdata directory; absent fields keep legacy catalogs compatible."""
+    folder = entry.get('folder', FOLDER)
+    if (not isinstance(folder, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _-]{0,95}', folder)
+            or folder != folder.strip() or re.fullmatch(r'CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]', folder, re.I)):
+        raise ValueError('Invalid publication folder')
+    return folder
+
+
 def provision_startup(comfyui_root: Path) -> None:
     """Install a frontend-only extension in our managed ComfyUI before it starts."""
     entries = load_catalog()['workflows']
     entries = sorted(entries, key=lambda entry: entry['id'] != 'qwen-image-2-1-t2i')
-    paths = ['workflows/' + FOLDER + '/' + PurePosixPath(entry['file']).name for entry in entries]
+    paths = ['workflows/' + publication_folder(entry) + '/' + PurePosixPath(entry['file']).name for entry in entries]
     source = (ROOT.parent / 'comfyui' / 'startup.js').read_text(encoding='utf-8')
     source = source.replace('__WORKFLOW_PATHS__', json.dumps(paths))
     package = Path(comfyui_root) / 'custom_nodes' / 'hermes_comfy_recipe_startup'
@@ -65,7 +74,7 @@ def load_catalog(root: Path | None = None) -> dict:
             raise ValueError('Invalid or duplicate workflow ID')
         if not isinstance(entry.get('title'), str) or not entry['title'].strip() or not re.fullmatch(r'\d+\.\d+\.\d+', str(entry.get('version', ''))):
             raise ValueError(f'Invalid workflow title/version: {ident}')
-        destination = PurePosixPath(entry.get('file', '')).name.casefold()
+        destination = (publication_folder(entry) + '/' + PurePosixPath(entry.get('file', '')).name).casefold()
         if destination in destinations:
             raise ValueError('Duplicate working-copy destination filename')
         destinations.add(destination)
@@ -130,7 +139,7 @@ def publish(inst: dict, data_dir: Path, workflow_ids: list[str] | None = None,
         asset = load_asset(entry, root)
         stem = PurePosixPath(entry['file']).stem
         suffix = '-v' + entry['version'] if versioned else ''
-        rel = FOLDER + '/' + stem + suffix + '.json'
+        rel = publication_folder(entry) + '/' + stem + suffix + '.json'
         if versioned:
             # A versioned sibling must not share the base tab's internal identity.
             asset['id'] = str(uuid.uuid5(uuid.NAMESPACE_URL, 'comfy-recipe/' + ident + '@' + entry['version']))

@@ -18,7 +18,7 @@ metadata:
 
 ## When to use
 The user gives one or several images and asks for a change: in the tutorial step 2 or in normal work with
-`Comfy Recipe/RCP_qwen_image_2_1_i2i.json`. For a brand-new picture from text use `qwen-image-2-1-prompting`.
+`Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json`. For a brand-new picture from text use `qwen-image-2-1-prompting`.
 
 An edit request has two halves: **the change** and **everything that must stay**. Anything unnamed is open to
 change, so the keep list is the specification, not politeness.
@@ -29,8 +29,9 @@ change, so the keep list is the specification, not politeness.
   place, light…) and is told what NOT to lend: a reference lends everything it shows unless the prompt says otherwise.
 - The bundled graph has two Load Image nodes (image_1, image_2). More references need one extra Load Image per
   image wired to the next free `image_N` input of the edit subgraph, in the window.
-- Bundled defaults: Lightning LoRA, 4 steps, CFG 1, `refine_prompt` OFF. Hermes writes the final prompt; never turn
-  on the enhancer to do that job. With CFG 1 the negative prompt does nothing: put constraints in the positive text.
+- Bundled defaults: Lightning LoRA ON, 4 steps, CFG 1, `refine_prompt` OFF. Hermes composes the explicit edit
+  and keep-list; refinement stays off by default for localized edits. Preserve explicit user settings; do not
+  silently switch modes. With CFG 1 the negative prompt does nothing: put constraints in the positive text.
 
 ## Prompt contract
 One paragraph, in this order:

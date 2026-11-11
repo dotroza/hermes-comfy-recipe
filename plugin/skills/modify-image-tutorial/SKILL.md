@@ -25,7 +25,7 @@ the tutorial after step 1, or runs `/comfy tutorial 2`. Steps 3-6 do not exist y
    allows, queues this step's models (group `tutorial-2`) and gives a `progress_card`.
 2. Start the reply with `### 🎓 Tutorial (step 2/6): Modify an image`. Put the `progress_card` MEDIA line once, alone
    on its line, if there is one.
-3. Switch the pane to `Comfy Recipe/RCP_qwen_image_2_1_i2i.json` visibly (Workflows sidebar). Re-read the page; never
+3. Switch the pane to `Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json` visibly (Workflows sidebar). Re-read the page; never
    discard a dirty tab. Point out in one line the two Load Image nodes and the before/after compare node.
 4. Tell the user (unless their message already did it): attach **one or several images** to this chat and say what to
    change. The first image is the one edited; the others are references (an outfit, an object, a style…).
@@ -46,7 +46,7 @@ the tutorial after step 1, or runs `/comfy tutorial 2`. Steps 3-6 do not exist y
    - Three or more: add one Load Image per extra image, wired to the next free `image_N` input of the edit
      subgraph (up to 10), visibly; say you did it.
 7. Write the edit prompt with `qwen-image-2-1-editing` (change + reference jobs + keep list, `<imageN>` tokens).
-   Show it briefly, type it into `positive_prompt`. Keep refine_prompt OFF, seed/steps/resolution unchanged.
+   Show it briefly, type it into `positive_prompt`. Bundled defaults: `refine_prompt` OFF, 4 steps, Lightning ON; preserve explicit user settings and existing seed/resolution.
 8. Read the exact saved path of the selected tab. Immediately before Run:
    `comfy_onboarding action=tutorial step=2 begin_run=true prompt=<exact text typed> workflow_path=<exact path>`.
    Tell the user the edit starts, click Run with `drive_preview`. Never `comfy_run` or a direct API call.

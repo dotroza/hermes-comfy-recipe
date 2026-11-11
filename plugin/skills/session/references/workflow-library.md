@@ -3,7 +3,8 @@
 ## Find and open a bundled workflow
 
 1. `comfy_workflows action=library` lists stable workflow IDs and metadata without requiring a backend.
-2. Managed ComfyUI startup adds the five bundled JSON definitions under **Workflows → Comfy Recipe**. No models,
+2. Managed ComfyUI startup adds five local JSON definitions under **Workflows → Local Recipe** and
+   five cloud definitions under **Workflows → Cloud Recipe**. No models,
    custom nodes, media uploads, generation or paid requests happen as part of copying definitions.
 3. On a foreign/existing instance, explain the destination and obtain consent before
    `comfy_workflows action=install`. Optional `workflow_ids` selects a subset; `[]` selects none.
@@ -11,6 +12,11 @@
    observed title selector. Keep all prompt/seed/number/media changes and every Run in the visible window.
 5. The startup/install result reports each copy. `installed` means the exact target was read back and verified;
    `unchanged` means it already matches. An error is not a successful copy, even if other copies succeeded.
+
+Cloud workflows require ComfyUI login and credits. Never embed credentials or infer login/credit readiness from
+publication or node availability. Obtain explicit approval before a paid run. Exact filenames and stable IDs are
+listed in the shipped catalog; preserve literal names, including `RCPcloud_t2s__elevenlabs_v4.json` and
+`RCPcloud_ti2i_seedream-5-0-pro.app.json`. Existing working copies, tabs and drafts remain untouched.
 
 ## Check requirements before installing anything
 
@@ -28,16 +34,16 @@ Do not treat missing core nodes as arbitrary custom packs; a compatible ComfyUI 
 
 ## Fresh managed install: independent setup choices
 
-Before the ordinary question, call `comfy_onboarding action=status`. Its proposal covers all five graphs,
+Before the ordinary question, call `comfy_onboarding action=status`. Its proposal covers all ten graphs,
 deduplicates files/packs and shows verified missing-download GB. Use one form with independent choices for nodes
 now (recommended) vs on use, and models on use (recommended) vs now. Unknown sizes/manual files must remain explicit;
 settings require separate consent in the same form. Record only submitted answers. Base installation is not consent.
-Select `Comfy Recipe/RCP_qwen_image_2_1_t2i.json` visibly before the form, even if browser storage from a previous
+Select `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json` visibly before the form, even if browser storage from a previous
 installation restored another graph. Keep other tabs/drafts. Use one short setup introduction, no inventory or generic
 untested-execution disclaimer; put actionable blockers and security disclosures briefly in the relevant question.
 The bulk-download option ends at `Download everything now (<verified GB>)` with no commentary after the size.
 Submit the answers in ONE call: `comfy_onboarding action=preferences nodes=.. models=.. settings=apply|skip`. The
-plugin installs approved packs through ComfyUI-Manager's API (every pack of all five graphs, no graph switching, no
+plugin installs approved packs through ComfyUI-Manager's API (every pack of all ten graphs, no graph switching, no
 window clicks), queues approved models and writes approved settings. Follow its numbered `instruction`:
 `comfy_downloads action=nodes_status wait_s=300` until `done` -> `comfy_setup action=restart` -> pane close + open ->
 select text-to-image again -> `comfy_onboarding action=status refresh=true` (`proposal.node_packs` must be empty;

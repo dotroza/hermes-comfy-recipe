@@ -24,7 +24,7 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
    once (idempotent; for an explicit restart request use `replay=true` once, never on every turn). Replay resets
    lesson progress, never node/model preferences. The result carries `downloads` for this step.
 2. Start the reply with the heading `### 🎓 Tutorial (step 1/6): Generate your first image`, so the user sees they
-   are in the tutorial. Open `Comfy Recipe/RCP_qwen_image_2_1_t2i.json` visibly with `drive_preview` right away:
+   are in the tutorial. Open `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json` visibly with `drive_preview` right away:
    the user should see the text-to-image workflow they are about to use. Re-read the page; never discard a dirty
    tab or overwrite a changed working copy. If the saved graph differs from the bundle, offer a versioned copy.
 3. If `downloads.progress_card` is present, put that `MEDIA:<path>` line once, alone on its own line: it becomes a
@@ -40,8 +40,9 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
    “Let’s create your first image. Describe what you’d like to see here in the chat—a subject, a place, a style,
    or just an idea. I’ll turn it into a prompt and make it in the ComfyUI window. You can say ‘skip tutorial’ at
    any time.” Do not substitute “What should I do first?” Other workflows may continue downloading in the background.
-5. When a description arrives, load `comfy-recipe:qwen-image-2-1-prompting` and write the prompt; keep the
-   workflow's `refine_prompt` enhancement OFF.
+5. When a description arrives, load `comfy-recipe:qwen-image-2-1-prompting` and lightly clean the user's wording
+   without adding a pose, setting or palette. The Image Gen defaults are `refine_prompt` ON, 25 steps,
+   Lightning disabled (strength 0); preserve any explicit user settings.
 6. Readiness before Run:
    - `downloads.consent_needed` (setup choice unanswered, legacy install): ask once with the verified GB, then
      `comfy_downloads action=start workflow_ids=["qwen-image-2-1-t2i"]`.
@@ -50,11 +51,11 @@ replay the tutorial”). Step 2 (Modify an image) is `comfy-recipe:modify-image-
    - Files added on disk while the pane is open still show as missing: click the Missing Models header Refresh
      (`[data-testid='missing-model-header-refresh']`) before Run. No pane reload needed.
    Settings need explicit consent. Unknown is not missing. No input image is needed for this step.
-7. Briefly show the enhanced prompt. Type it into the proper textarea using `drive_preview`. Preserve resolution,
+7. Briefly show the lightly cleaned prompt. Type it into the proper textarea using `drive_preview`. Preserve resolution,
    seed and other values unless a change is necessary and disclosed. Do not edit prompt, number, seed or image values
    through workflow JSON. Do not save the tab unless asked.
 8. Read the exact saved path of the visibly selected working copy (including any `-v1.1.0` suffix).
-   Immediately before Run, call `comfy_onboarding action=tutorial begin_run=true prompt=<exact enhanced prompt> workflow_path=<exact selected saved path>`
+   Immediately before Run, call `comfy_onboarding action=tutorial begin_run=true prompt=<exact entered prompt> workflow_path=<exact selected saved path>`
    to bind its actual UUID, managed backend, history baseline and prompt hash (not the text).
    If the active/visible instance differs from the managed installation, stop and ask for an explicit switch.
    Tell the user the described image will now be generated, then click Run in the window with `drive_preview`.

@@ -73,15 +73,18 @@ approved they are always:
    Do NOT open the Nodes Manager, do NOT search packs there, do NOT click `Install All` - the packs are already queued.
 3. `comfy_setup action=restart` (one call). Never the Manager's `Apply Changes` button.
 4. `desktop_preview action=close`, then `action=open` with the same url (loads the new nodes and Nodes 2.0), then
-   select `Comfy Recipe/RCP_qwen_image_2_1_t2i.json` again.
+   select `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json` again.
 5. `comfy_onboarding action=status refresh=true` -> `proposal.node_packs` must be empty.
 6. `comfy_onboarding action=tutorial`, then load `comfy-recipe:first-image-tutorial`.
 `state=error` on the node card names the packs that failed: show it and offer one retry with
 `comfy_downloads action=install_nodes`. Settings only (no packs): step 4 is enough, no restart.
 Do not ask what the user wants to do until tutorial success, explicit skip, or the next distinct Recipe session.
 `/comfy tutorial` replays the first-image lesson at any time; “tutorial” and “skip tutorial” also work in Recipe chats.
-Only the first-image lesson exists. The reusable `comfy-recipe:qwen-image-2-1-prompting` skill writes prompts in
-Hermes, leaving the graph's extra model-based enhancer off. Returning/legacy installs are not forced into onboarding.
+Steps 1 (generate) and 2 (modify) exist; steps 3–6 are not implemented. For text-to-image,
+`comfy-recipe:qwen-image-2-1-prompting` lightly cleans the user's wording, with Image Gen `refine_prompt` ON,
+25 steps and Lightning disabled (strength 0). For image editing, `comfy-recipe:qwen-image-2-1-editing` writes an
+explicit change plus keep-list, with `refine_prompt` OFF, 4 steps and Lightning ON. These are bundled defaults,
+not permission to override explicit user settings. Returning/legacy installs are not forced into onboarding.
 
 ## Procedure: open a ComfyUI session
 In the desktop app the plugin does steps 1–2 itself at the kickoff (it checks ComfyUI, opens the pane and hands you the
@@ -104,7 +107,7 @@ plugin's kickoff facts, do all steps:
 ## Procedure: work in the window
 Act as a graph-editing assistant: modify the user's current workflow in place by default.
 Adding/removing a node, reconnecting a link, or adding a reference image is a small in-place edit, not a new workflow.
-For example, if `RCP_qwen_image_2_1_i2i` has only one Load Image and the user supplies two images, add a Load Image
+For example, if `RCPlocal_ti2i_qwen_image_2-1` has only one Load Image and the user supplies two images, add a Load Image
 node and connect its IMAGE output to the Image Edit subgraph's `image_2` input in that same graph.
 Duplicate only for substantial restructuring (many coordinated edits, including edits inside group/subgraph nodes),
 or when the user explicitly asks for a copy. Explain a substantial fork before creating it. Missing inputs, a dirty
@@ -132,8 +135,10 @@ Follow `references/pane-recipe.md` step by step (open workflow → prompt → nu
 ## Procedure: use the shared workflow library
 - Native skills stay in the plugin; a skill may use zero, one, or several shared workflow IDs. There is no separate
   recipe engine. Do not copy workflows into skill folders.
-- `comfy_workflows action=library` lists bundled IDs offline. Managed startup adds all five definitions to the
-  `Comfy Recipe/` folder; dependencies are not installed by copying JSON.
+- `comfy_workflows action=library` lists bundled IDs offline. Managed startup adds five local definitions to
+  `Local Recipe/` and five cloud definitions to `Cloud Recipe/`; dependencies are not installed by copying JSON.
+- Cloud workflows require ComfyUI login and credits. Obtain explicit approval before a paid run; never embed
+  credentials or treat publication/preflight as proof of authentication, credit balance or successful execution.
 - Before using one, follow `references/workflow-library.md`: `comfy_workflows action=check`, then propose its
   `setup_proposal` — ALL missing node packs, models and settings (e.g. Nodes 2.0) — in ONE clarify form; on OK run
   its `window_steps` in order (`comfy_downloads action=install_nodes`, `action=start`, `comfy_workflows

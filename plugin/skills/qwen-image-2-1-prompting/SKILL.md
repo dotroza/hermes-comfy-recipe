@@ -13,33 +13,35 @@ metadata:
     related_skills: [session]
 ---
 
-# Qwen Image 2.1 — agent-written prompts
+# Qwen Image 2.1 — faithful prompts with built-in refinement
 
 ## When to use
 A user describes an image for Qwen Image 2.1, in the first-image tutorial or normal generation.
-This skill rewrites the description in the agent; it does not load another model or enable graph enhancement.
+Use `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json`. Hermes lightly cleans the wording; the Image Gen
+`refine_prompt` model handles creative expansion by default. Do not treat agent cleanup as a substitute for it.
 For editing an existing image, use editing-specific guidance instead of inventing a text-to-image interpretation.
 
 ## Prompt contract
 Write one concise, coherent paragraph ready for the positive-prompt textarea:
-- Start with the requested subject and action, then useful composition, environment, lighting and requested style.
+- Start with the requested subject and action; retain composition, environment, lighting and style only when supplied.
 - Preserve intent, explicit counts, identities, relationships, framing and exclusions.
 - Preserve **exact text** to appear in the image, including accents, case and punctuation, inside quotes.
   Keep the requested lettering language even if the rest of the descriptive prose is English.
-- Fill in only low-stakes visual details that support the idea. Do not add extra people, brands, reference images,
-  unwanted text, camera hardware or stylistic contradictions. A short clear idea needs a short clear prompt.
+- Lightly clean grammar and ambiguity without imposing an unrequested pose, setting, palette or photographic recipe.
+  Do not add extra people, brands, reference images, unwanted text or camera hardware. A short clear idea needs a
+  short clear prompt; let the built-in refiner expand it rather than converging different ideas on one composition.
 - Ask one focused question only when a meaningful choice cannot be inferred. Do not make beginners fill out a form
   for subject/style/lighting when their request is already usable.
 
 Example user idea: `A quiet little café in rain, watercolor, with the exact sign "Chez Léa"`.
-Prompt: `A quiet little café on a rainy street, rendered in delicate watercolor. The café sign reads exactly
-"Chez Léa". Soft reflections on the wet pavement and gentle washes of muted color create a peaceful atmosphere.`
+Prompt: `A quiet little café in the rain, watercolor. The sign reads exactly "Chez Léa".`
 
 ## Visible use
-Briefly show the rewritten prompt, then use the session pane recipe to type it with `drive_preview`.
-Keep `refine_prompt` OFF: Hermes already enhanced the description. The enhancement model file is still a
-required download (the window's Missing Models check blocks Run without it); it is fetched with the workflow's
-other models, but never switched on. Do not change prompts or controls through JSON, or substitute a headless API run.
+Briefly show the lightly cleaned prompt, then use the session pane recipe to type it with `drive_preview`.
+Bundled Image Gen defaults: `refine_prompt` ON, 25 steps, Lightning disabled with strength 0. Preserve any explicit
+user settings; disclose a proposed mode change instead of silently overriding them. Check model readiness independently
+of refinement mode: the connected enhancement loader can still require its file even with refinement off.
+Do not change prompts or controls through JSON, or substitute a headless API run.
 For CFG 1, the negative-prompt field is not an effective control: express essential constraints clearly in the
 positive paragraph rather than claiming an ignored negative field will enforce them.
 

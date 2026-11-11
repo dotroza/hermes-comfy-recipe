@@ -29,7 +29,7 @@ Run every step with the exact tool calls below; read each result before the next
   title AND URL UUID to distinguish original files from distributed copies.
 
 ## 1b. Match the Load nodes to the user's media (add / delete / connect)
-Verified on the MiniMax r2v graph, now `RCP_video_minimax_h3_r2v` (cat sheet + photo + 3 s video): every attached item gets its own connected
+Verified on the MiniMax r2v graph, now `Local Recipe/RCPlocal_r2v_video_minimax_h3.json` (cat sheet + photo + 3 s video): every attached item gets its own connected
 loader; extras are removed. Count what the request needs, then what the LIVE graph has:
 1. Read the live wiring, not the bundled file: a dirty tab may differ (it had 3 Load Images where the file had 2, and
    no Load Video the agent thought it had added). Either save the tab (step 5 below) and read the links, or in the

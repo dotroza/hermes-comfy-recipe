@@ -224,7 +224,7 @@ class TutorialStepTests(unittest.TestCase):
         self.complete_step1()
         onboarding.tutorial(self.root, self.m, 'A', step=2)
         with patch.object(core.cc, 'load_workflow') as read:
-            for path in ['Comfy Recipe/RCP_qwen_image_2_1_t2i.json', '../x.json']:
+            for path in ['Local Recipe/RCPlocal_t2i_qwen_image_2-1.json', '../x.json']:
                 with self.subTest(path=path), self.assertRaisesRegex(ValueError, 'working copy'):
                     flow.handle({'action': 'tutorial', 'step': 2, 'begin_run': True, 'workflow_path': path, 'prompt': 'p'}, 'A')
             read.assert_not_called()
@@ -232,14 +232,14 @@ class TutorialStepTests(unittest.TestCase):
             flow.handle({'action': 'tutorial', 'step': 1, 'begin_run': True, 'prompt': 'p'}, 'A')
         with patch.object(core.cc, 'load_workflow', return_value={'id': 'i2i-uuid'}), patch.object(core.cc, 'get_json', return_value={}):
             r = flow.handle({'action': 'tutorial', 'step': 2, 'begin_run': True, 'prompt': 'In <image1> make it night',
-                             'workflow_path': 'Comfy Recipe/RCP_qwen_image_2_1_i2i-v1.0.1.json'}, 'A')
+                             'workflow_path': 'Local Recipe/RCPlocal_ti2i_qwen_image_2-1-v1.0.1.json'}, 'A')
         self.assertEqual((r['tutorial']['step'], r['tutorial']['state'], r['tutorial']['workflow_id']), (2, 'in_progress', 'i2i-uuid'))
 
     def test_completion_offers_step2_and_step2_completion_asks_ordinary_question(self):
         from plugin import onboarding_flow as flow
         from test_tutorial_evidence import history
         onboarding.status(self.root, self.m, 'A'); onboarding.tutorial(self.root, self.m, 'A')
-        for step, path, wid in [(1, 'Comfy Recipe/RCP_qwen_image_2_1_t2i.json', 't2i'), (2, 'Comfy Recipe/RCP_qwen_image_2_1_i2i.json', 'i2i')]:
+        for step, path, wid in [(1, 'Local Recipe/RCPlocal_t2i_qwen_image_2-1.json', 't2i'), (2, 'Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json', 'i2i')]:
             if step == 2:
                 onboarding.tutorial(self.root, self.m, 'A', step=2)
             with patch.object(core.cc, 'load_workflow', return_value={'id': wid}), patch.object(core.cc, 'get_json', return_value={}), \

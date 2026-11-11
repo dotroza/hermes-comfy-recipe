@@ -1,6 +1,10 @@
 # Post-install setup and first-image tutorial
 
-Fresh managed installations open text-to-image first. After the ready summary, the agent asks one setup form:
+Fresh managed installations publish five workflows in `Local Recipe/` and five in `Cloud Recipe/`,
+opening `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json` first. Cloud workflows require ComfyUI login and
+credits; publication, setup consent and tutorials do not authorize a paid run. Never embed credentials in workflows.
+
+After the ready summary, the agent asks one setup form:
 - Missing node packs: install now (recommended), or when a workflow needs them.
 - Missing models: download on use (recommended), or download now with the verified missing-download total.
 
@@ -19,22 +23,23 @@ install only the approved missing packs; do not assume the current Issues panel 
 ## The first-image lesson
 
 The user describes an image in chat. The native `qwen-image-2-1-prompting` skill writes a concise, faithful prompt,
-including exact requested lettering. It keeps the graph's enhancement model switched off. The tutorial selects the
+including exact requested lettering, without imposing an unrequested pose, setting or palette. Image Gen
+`refine_prompt` is ON by default (25 steps, Lightning disabled at strength 0); preserve explicit user settings. The tutorial selects the
 text-to-image working copy, types the prompt and clicks Run visibly. A backend baseline and prompt hash are recorded
 immediately before Run; completion requires a new matching successful image with uncached sampling and visual review.
 
-The bundled text-to-image graph is version 1.1.0: its prompt preview/encoder path receives the agent-written text
-directly. The old built-in enhancement branch is disconnected from the output path, but the subgraph's `PE_model`
-loader still names its file and the frontend's Missing Models check blocks Run ("Setup required") without it, so
-the file is a required download in tutorial step 1's group. Every graph widget value is preserved. Existing user copies are never
-overwritten; request a versioned bundle sibling when upgrading an existing graph. The image-edit graph is unchanged:
-its connected enhancement loader may still require the file for validation even when refinement is off.
+The text-to-image working copy is `Local Recipe/RCPlocal_t2i_qwen_image_2-1.json`; Hermes lightly cleans
+the user's wording and Qwen's built-in refiner handles creative expansion. For step 2, use
+`Local Recipe/RCPlocal_ti2i_qwen_image_2-1.json`: Hermes composes an explicit edit plus keep-list,
+with `refine_prompt` OFF, 4 steps and Lightning ON by default. Neither policy overrides explicit user settings.
+Check model readiness independently: an enhancement loader may require its file for validation even when
+refinement is off. Existing copies and tabs are never overwritten; offer a versioned sibling for an upgrade.
 
 After one successful image, “skip tutorial”, or a second distinct Recipe chat, the ordinary question is available.
 A failed or cached run does not count as completion. A technically successful inspected image can complete the
 lesson even if a sign is misspelled: disclose that mismatch and offer an optional retry, never claim fidelity
 without evidence. The second image in the SAME chat is not a second session.
-The other five workflow tutorials are not implemented yet.
+Step 2 (Modify an image) is implemented; steps 3–6 are not implemented yet.
 
 ## Replay and state
 
@@ -43,7 +48,7 @@ reaches the tutorial hook even without a Recipe kickoff marker. In Recipe chats,
 and “skip tutorial” exits. Quoted phrases and unrelated chats are not commands. Replay preserves setup preferences.
 
 `comfy_onboarding` provides status, preferences, tutorial, complete and skip actions. Calling-session identity comes
-from Hermes runtime context, not model arguments. `status refresh=true` rechecks all five workflows; `status
+from Hermes runtime context, not model arguments. `status refresh=true` rechecks all ten workflows; `status
 workflow=qwen-image-2-1-t2i` checks the lesson only. `tutorial begin_run=true prompt=<exact entered text>` prepares
 verification; include `workflow_path=<exact visibly selected saved path>` when using a versioned sibling. The
 selected copy's real UUID is checked; only the prompt hash is retained, not the description. Onboarding resolves

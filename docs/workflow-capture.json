@@ -1,23 +1,23 @@
 {
-  "source_choice": "last-saved files; unsaved open tabs preserved",
+  "source_choice": "User-approved last-saved revisions; live drafts preserved",
   "identity_namespace": "UUID5 URL https://github.com/dotroza/hermes-comfy-recipe/workflows/<stable-id>",
   "files": [
     {
-      "file": "RCP_audio_ace_step1_5_xl_base.json",
-      "source_sha256": "6951f2b50a624d41343678cc4ee8b250ae9206cb7aabc6136d94dfa061f41ea4",
+      "file": "RCPlocal_audio_ace_step1-5_xl_base.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\Comfy Recipe\\RCPlocal_audio_ace_step1-5_xl_base.json",
+      "source_sha256": "169631f0565e381b1a9bfe76f607ea4dbf1900242f741abcfb1dbb46b6abb28b",
       "distributed_sha256": "bd634f185dec0775767940d063b36cc3a188f752b85126751e3671c2c26c2936",
-      "source_id": "87879e27-4cd4-4c7b-8367-794da6be4d39",
+      "source_id": "c12b878a-2fa8-56ca-9afa-675bafcd700d",
       "distributed_id": "c12b878a-2fa8-56ca-9afa-675bafcd700d",
-      "semantic_changes": [
-        "id"
-      ],
+      "semantic_changes": [],
       "absolute_path_warnings": 0,
       "potential_secrets": 0
     },
     {
-      "file": "RCP_qwen_image_2_1_i2i.json",
-      "source_sha256": "117d733e5e2df673f186502434d5167ee998c2627ebef92a4fa0393b6b5544f0",
-      "distributed_sha256": "d48d959060b3b7e2f782cf6709d808a90de24f714b7b35060a2cd7f2a0430dc3",
+      "file": "RCPlocal_ti2i_qwen_image_2-1.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\Comfy Recipe\\RCPlocal_ti2i_qwen_image_2-1.json",
+      "source_sha256": "7d344b8348829e4900768f8e31b8a2f541ccd4debb3ce0b4cd70f427088b8186",
+      "distributed_sha256": "db38ebeee18699d07c57a3b1a77f09697328a248f9b2b803eb261759b35b6433",
       "source_id": "7eeb95ae-dc8d-5526-98c0-5420e8e6dc8b",
       "distributed_id": "7eeb95ae-dc8d-5526-98c0-5420e8e6dc8b",
       "semantic_changes": [],
@@ -25,41 +25,99 @@
       "potential_secrets": 0
     },
     {
-      "file": "RCP_qwen_image_2_1_t2i.json",
-      "source_sha256": "3de5820b7051a66d0bbd44b4485c615e1927be8255d1299b295c9670d98daa46",
-      "distributed_sha256": "318fcb4caf384c147105c108fe921556fe8b385d05e4f19f137b6fb116fc7b87",
-      "source_id": "ebca27a8-80f8-4e65-9b8a-9da9d41e5730",
+      "file": "RCPlocal_t2i_qwen_image_2-1.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\Comfy Recipe\\RCPlocal_t2i_qwen_image_2-1.json",
+      "source_sha256": "95204788c9994d83d3a23080d19eb427b5a0ab3040abe249a32a3a5e47813bdc",
+      "distributed_sha256": "6f302d2126f532d919ea4344b166b07bf61b5684eb807835b1ec19cfde13e8b2",
+      "source_id": "8a9215e4-e5a8-52f1-82f4-0f23eabed74d",
       "distributed_id": "8a9215e4-e5a8-52f1-82f4-0f23eabed74d",
-      "semantic_changes": [
-        "id"
-      ],
+      "semantic_changes": [],
       "absolute_path_warnings": 0,
       "potential_secrets": 0
     },
     {
-      "file": "RCP_pixal3d_ImgTo3D.json",
-      "source_sha256": "5d847af87e2d771b824931b5baa09e0ba925bc05498e5f693b5c26819ff3019e",
-      "distributed_sha256": "c2c1cb430fb91d77ca389b09578cd2d8a3d06e23350a45cd1eb271e1ea6c8959",
+      "file": "RCPlocal_i23d_pixal3d.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\Comfy Recipe\\RCPlocal_i23d_pixal3d.json",
+      "source_sha256": "d7fc88d3a7a8a9f238ba629114b0dd78d8f445a0fcf4895fd74692995c590871",
+      "distributed_sha256": "b8b55fe033db6193af899bc7be52fce550b1df7897468e5ab88d55e9bda49fda",
       "source_id": "d0b4973b-1318-5eca-9948-ba255691fc20",
       "distributed_id": "d0b4973b-1318-5eca-9948-ba255691fc20",
+      "semantic_changes": [],
+      "absolute_path_warnings": 0,
+      "potential_secrets": 0
+    },
+    {
+      "file": "RCPlocal_r2v_video_minimax_h3.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\Comfy Recipe\\RCPlocal_r2v_video_minimax_h3.json",
+      "source_sha256": "ff58e43d3351c54d3b7e1c52fb404b9b10af3226138a241a8094a4c29f926f3e",
+      "distributed_sha256": "cd46afe0b477bbdbc702f0b3893411b459959f99e7b27df4750eb6fa4f2984f4",
+      "source_id": "386c98f3-a7b6-5b65-afaf-0ab20c6edef6",
+      "distributed_id": "386c98f3-a7b6-5b65-afaf-0ab20c6edef6",
+      "semantic_changes": [],
+      "absolute_path_warnings": 0,
+      "potential_secrets": 0
+    },
+    {
+      "file": "RCPcloud_r2v_seedance2-5.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\RCPcloud_r2v_seedance2-5.json",
+      "source_sha256": "a317e956ec368b71d585e8a89c445d2c5950bbecc3aefe7088074d6313fc77a0",
+      "distributed_sha256": "57b6d26db3075a76384ad4749723925d8330b9f6f2209f3b3a481363b1f4aaf6",
+      "source_id": "7a06a6de-067d-4d41-b7bf-7d6add20ec8c",
+      "distributed_id": "361f3bdf-6aa5-53dc-9b75-8fb644124cca",
       "semantic_changes": [
-        "Re-captured user-saved simplified graph: SAM3Segment, Qwen CLIPLoader/TextGenerate and their routing removed; BiRefNet path preserved."
+        "Unique bundled workflow identity"
       ],
       "absolute_path_warnings": 0,
       "potential_secrets": 0
     },
     {
-      "file": "RCP_video_minimax_h3_r2v.json",
-      "source_sha256": "fee11cf75153cd3cd3174062cd50410c37fbad0e1cb199a7a1142197d69797a1",
-      "distributed_sha256": "20fa6b5edb84d643166ea3fed4cdf147c2901a44782a8ef034a5f3908af7928b",
-      "source_id": "e168a7bd-bec6-4f36-8249-b26e45280ba5",
-      "distributed_id": "386c98f3-a7b6-5b65-afaf-0ab20c6edef6",
+      "file": "RCPcloud_t2v_seedance-2-5.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\RCPcloud_t2v_seedance-2-5.json",
+      "source_sha256": "f2fab7206c5bbdd4600e4538e9709029d347b6d5d5b325347d8f025850fc39bd",
+      "distributed_sha256": "ef540fa10c7906e0842ebf50182e3c47ebd60c2f10d858b73155f7f0bbecffe6",
+      "source_id": "7a06a6de-067d-4d41-b7bf-7d6add20ec8c",
+      "distributed_id": "11b5d917-5768-57e0-a8d0-d3b5bc390b7d",
       "semantic_changes": [
-        "id",
-        "UNETLoader/CLIPLoader properties.models: stale int8 / 32B entries -> the w6a8 / 8B files the widgets load",
-        "Model-links note: lists the w6a8 diffusion model and the 8B encoder the graph actually loads",
-        "guide titles 'First frame: FoxMask kid' / 'Last frame: YellowCoat pose' -> 'First frame guide' / 'Last frame guide'",
-        "Asset renamed to RCP_video_minimax_h3_r2v.json; graph bytes and distributed identity preserved."
+        "Unique bundled workflow identity"
+      ],
+      "absolute_path_warnings": 0,
+      "potential_secrets": 0
+    },
+    {
+      "file": "RCPcloud_t2s__elevenlabs_v4.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\RCPcloud_t2s__elevenlabs_v4.json",
+      "source_sha256": "e1aaff94c74ff169ce523a0748602409ad61106f79c95fa27c8802c349e48769",
+      "distributed_sha256": "a445040e8babbd4eecc943a0edf8986689f035ef3d172584cd3d542183e7119d",
+      "source_id": "91f6bbe2-ed41-4fd6-bac7-71d5b5864ecb",
+      "distributed_id": "e2b1e848-66c4-5208-a75e-ef29551cd035",
+      "semantic_changes": [
+        "Unique bundled workflow identity"
+      ],
+      "absolute_path_warnings": 0,
+      "potential_secrets": 0
+    },
+    {
+      "file": "RCPcloud_ti2i_gpt_image_2-6_sunburst.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\RCPcloud_ti2i_gpt_image_2-6_sunburst.json",
+      "source_sha256": "78dbe903055d27dc5244f23f8bbf190b5ead12b893bc9a87836190250edf68f3",
+      "distributed_sha256": "7a31749c8559cf636b1c0e7d47704efa862cb03e514b36ed1618a6843a055dfc",
+      "source_id": "7a06a6de-067d-4d41-b7bf-7d6add20ec8c",
+      "distributed_id": "97076b29-0833-5995-827c-616e07a9d2bf",
+      "semantic_changes": [
+        "Unique bundled workflow identity"
+      ],
+      "absolute_path_warnings": 0,
+      "potential_secrets": 0
+    },
+    {
+      "file": "RCPcloud_ti2i_seedream-5-0-pro.app.json",
+      "source_path": "C:\\Users\\pablo\\Documents\\ComfyRecipeEnv\\ComfyUI\\user\\default\\workflows\\RCPcloud_ti2i_seedream-5-0-pro.app.json",
+      "source_sha256": "64b93a6e5ea3b88b9ba152eee237ce555e8b964fdd209a1e6deff08983c30456",
+      "distributed_sha256": "e3f256a4d804000a3e9c022f4a25db02e9eb5a916e73908a6d8472d81f954592",
+      "source_id": "52821233-f713-410e-abed-d288a0329547",
+      "distributed_id": "567c31c6-d9f1-5aba-876d-504f7458092f",
+      "semantic_changes": [
+        "Unique bundled workflow identity"
       ],
       "absolute_path_warnings": 0,
       "potential_secrets": 0

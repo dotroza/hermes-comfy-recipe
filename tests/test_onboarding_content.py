@@ -47,10 +47,25 @@ class OnboardingContentTests(unittest.TestCase):
                 self.assertIn(f'`{p.relative_to(root).as_posix()}`',readme)
                 self.assertIn(hashlib.sha256(p.read_bytes()).hexdigest(),readme)
 
+    def test_local_prompt_modes_and_cloud_consent_are_explicit(self):
+        import plugin
+        from plugin import onboarding_flow as flow
+        self.assertIn('soft', flow.LESSON)
+        self.assertIn('refine_prompt on', flow.LESSON)
+        self.assertIn('25 steps', flow.LESSON)
+        self.assertIn('Lightning LoRA strength 0', flow.LESSON)
+        self.assertIn('refine_prompt off', flow.LESSON_2)
+        self.assertIn('4 steps', flow.LESSON_2)
+        self.assertIn('Lightning LoRA strength 1', flow.LESSON_2)
+        self.assertIn('refine_prompt on', plugin.SESSION_RULES)
+        self.assertIn('Cloud Recipe', plugin.SESSION_RULES)
+        self.assertIn('paid', plugin.SESSION_RULES)
+        self.assertIn('never queue', flow.SETUP)
+
     def test_fresh_setup_copy_is_brief_and_keeps_t2i_visible(self):
         import plugin
         from plugin import onboarding_flow as flow
-        self.assertIn('open Comfy Recipe/RCP_qwen_image_2_1_t2i.json visibly', plugin.FIRST_RUN)
+        self.assertIn('open Local Recipe/RCPlocal_t2i_qwen_image_2-1.json visibly', plugin.FIRST_RUN)
         self.assertIn('Keep the setup introduction to one short sentence', flow.SETUP)
         self.assertIn('End the bulk-download choice at the closing size parenthesis', flow.SETUP)
         self.assertNotIn('tutorial starts as soon as step 1 is ready', flow.SETUP)

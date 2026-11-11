@@ -84,7 +84,7 @@ SCHEMAS = {
             "workflow": {"type": "string", "description": "status: optional bundled workflow id for on-use readiness"},
             "workflow_path": {"type": "string", "description": "tutorial begin_run: exact selected saved path of this step's workflow, including any -v1.1.0 suffix; read it from the visible workflow selection"},
             "replay": {"type": "boolean"}, "begin_run": {"type": "boolean"},
-            "refresh": {"type": "boolean", "description": "status: recheck all five workflows after approved setup work"},
+            "refresh": {"type": "boolean", "description": "status: recheck all bundled workflows after approved setup work"},
             "prompt": {"type": "string", "description": "tutorial begin_run: exact enhanced text entered visibly; only a hash is stored"},
             "prompt_id": {"type": "string", "description": "complete: explicit id of the corresponding window run, not latest"}
         }, "required": ["action"], "additionalProperties": False},
@@ -158,7 +158,7 @@ SCHEMAS = {
         "name": "comfy_workflows",
         "description": "Saved ComfyUI workflows: list, describe (workflow=<saved name>), timings. "
                        "action=library lists bundled workflow IDs offline. action=install copies bundled workflows "
-                       "into Comfy Recipe/ without overwriting user files; ask consent on existing/foreign instances. "
+                       "into their Local Recipe/ or Cloud Recipe/ folders without overwriting user files; ask consent on existing/foreign instances. "
                        "Optional workflow_ids selects a subset; versioned=true creates separate versioned siblings. "
                        "action=check with workflow=<bundled stable ID> reports node/model/media/service/frontend-setting "
                        "requirements read-only (refresh=true by default) plus setup_proposal: ALL missing node packs, models "
@@ -300,7 +300,7 @@ def _workflows(p: dict):
         packs = downloads.installed_packs(inst['url']) if (entry.get('requirements') or {}).get('frontend_nodes') else None
         result = dependencies.check(inst, entry, wf, info, settings, settings_error,
                                     size_of=dependencies.remote_size, installed_packs=packs)
-        rel = library.FOLDER + '/' + Path(entry['file']).name
+        rel = library.publication_folder(entry) + '/' + Path(entry['file']).name
         result['definition']['path'] = rel
         result['definition']['scope'] = 'bundled_asset'
         try:
@@ -534,9 +534,9 @@ FIRST_RUN = (
     "workflows: drag a workflow .json (or an image made by ComfyUI) from your files into the ComfyUI window - the whole "
     "graph opens exactly as saved; save it with Ctrl+S to keep it in the Workflows list.'\n"
     "   Existing ComfyUI: comfy_setup action=use_existing, then follow its result (it may say no backend is running).\n"
-    "The five bundled workflow definitions are copied after startup; this does not install their dependencies. "
+    "The ten bundled workflow definitions (five Local Recipe, five Cloud Recipe) are copied after startup; this does not install their dependencies. "
     "Do not open the preview pane before ComfyUI runs. Base installation itself does not authorize extra nodes/models. "
-    "Once the pane is open, open Comfy Recipe/RCP_qwen_image_2_1_t2i.json visibly in the Workflows sidebar before setup choices, "
+    "Once the pane is open, open Local Recipe/RCPlocal_t2i_qwen_image_2-1.json visibly in the Workflows sidebar before setup choices, "
     "even if this localhost origin restored a tab from an older installation. Preserve all other tabs and drafts. "
     "Call comfy_onboarding action=status: ask the independent setup choices, perform only approved work, "
     "then start the first-image tutorial. Do not end a fresh install with the ordinary question.\n"
@@ -679,7 +679,13 @@ SESSION_RULES = (
     "Issues tab's Install All (one click, it lists every missing pack of the open graph; never search packs one by one in "
     "the Nodes Manager), then comfy_downloads action=nodes_status wait_s=300 and comfy_setup action=restart. Bundled "
     "workflows: comfy_downloads action=install_nodes instead (no window clicks). Settings such as Nodes 2.0: "
-    "comfy_workflows action=apply_settings, never by hand. Never click the Manager's Apply Changes."
+    "comfy_workflows action=apply_settings, never by hand. Never click the Manager's Apply Changes. "
+    "Bundled workflows live in Local Recipe/ and Cloud Recipe/; preserve old Comfy Recipe/ copies and every open draft. "
+    "Local Qwen t2i: soft plugin refinement (preserve the user's idea), refine_prompt on, 25 steps, Lightning LoRA strength 0. "
+    "Local Qwen i2i: explicit edit instruction plus preservation, refine_prompt off, 4 steps, Lightning LoRA strength 1. "
+    "Respect an explicitly chosen mode. Cloud Recipe workflows use paid core ComfyUI API nodes, account authentication "
+    "and credits, not local weights. Copying/installing them is not run consent; never queue paid runs during setup, "
+    "and obtain explicit consent for each paid run."
 )
 
 

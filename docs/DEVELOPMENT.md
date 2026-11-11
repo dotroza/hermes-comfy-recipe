@@ -47,7 +47,7 @@ Verified while building the plugin (Hermes desktop, Nov 2026). Read before chang
 - Jobs queued via API are never shown in a browser tab (events go only to the queuing `client_id`).
 
 ## Shared workflow library (0.4.0)
-- `library.py` validates package paths/hashes and publishes only missing working copies under `Comfy Recipe/`, with
+- `library.py` validates package paths/hashes and publishes only missing working copies under `Local Recipe/` and `Cloud Recipe/`, with
   overwrite disabled and exact target read-back. Different user JSON is protected; updates are explicit siblings.
 - `core.setup_start` and the running-session fast path provision only the managed instance. Foreign instances require
   explicit `comfy_workflows action=install`. Runtime records live in `core.DATA/library/`, not the plugin package.

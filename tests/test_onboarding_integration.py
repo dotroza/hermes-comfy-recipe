@@ -30,6 +30,7 @@ class FlowTests(unittest.TestCase):
             onboarding.status(self.root,self.m,'A');onboarding.tutorial(self.root,self.m,'A')
             published=library.publish(inst,self.root/'publication',workflow_ids=['qwen-image-2-1-t2i'],versioned=True)
             target=published['workflows'][0]['path']
+            self.assertTrue(target.startswith('Local Recipe/RCPlocal_t2i_qwen_image_2-1-v'))
             saved=files['workflows/'+target]
             base=library.load_asset(next(e for e in library.load_catalog()['workflows'] if e['id']=='qwen-image-2-1-t2i'))
             self.assertNotEqual(saved['id'],base['id'])

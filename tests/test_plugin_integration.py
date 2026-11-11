@@ -65,7 +65,7 @@ class ToolTests(unittest.TestCase):
     def test_library_listing_works_without_active_backend(self):
         with patch.object(core,'active',side_effect=AssertionError('must be offline')):
             r=plugin._workflows({'action':'library'})
-        self.assertEqual(len(r['workflows']),5)
+        self.assertEqual(len(r['workflows']),10)
         self.assertEqual(r['source'],'bundled_library')
 
     def test_install_dispatch_is_explicit(self):
@@ -79,10 +79,13 @@ class ToolTests(unittest.TestCase):
             info=Path(tmp)/'info.json'; info.write_text('{}')
             with patch.object(core,'_inst',return_value={'url':'http://test'}), \
                  patch.object(core,'_object_info_path',return_value=info) as refresh, \
+                 patch.object(core.cc, 'get_json', return_value={}), \
+                 patch('plugin.downloads.installed_packs', return_value=set()), \
                  patch('plugin.dependencies.check',return_value={'definition':{},'workflow_id':'qwen-image-2-1-t2i'}), \
                  patch.object(core.cc,'list_workflows',return_value=[]):
                 r=plugin._workflows({'action':'check','workflow':'qwen-image-2-1-t2i'})
             self.assertEqual(r['workflow_id'],'qwen-image-2-1-t2i')
+            self.assertEqual(r['definition']['path'], 'Local Recipe/RCPlocal_t2i_qwen_image_2-1.json')
             self.assertEqual(r['definition']['working_copy'],'missing')
             self.assertTrue(refresh.call_args.kwargs['refresh'])
 

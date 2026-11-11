@@ -7,17 +7,16 @@ from plugin import library
 
 
 class Pixal3DRevisionTests(unittest.TestCase):
-    def test_fresh_publish_contains_all_five_canonical_files(self):
-        expected = {'RCP_qwen_image_2_1_t2i.json', 'RCP_qwen_image_2_1_i2i.json',
-                    'RCP_audio_ace_step1_5_xl_base.json', 'RCP_pixal3d_ImgTo3D.json',
-                    'RCP_video_minimax_h3_r2v.json'}
+    def test_fresh_publish_contains_all_ten_canonical_files(self):
+        expected = {'workflows/' + e['folder'] + '/' + e['file']
+                    for e in library.load_catalog()['workflows']}
         with tempfile.TemporaryDirectory() as tmp, comfy_server() as env:
             inst, files, *_ = env
             result = library.publish(inst, Path(tmp))
             self.assertTrue(result['complete'])
-            self.assertEqual(result['counts'], {'installed': 5})
-            self.assertEqual(set(files), {'workflows/Comfy Recipe/' + name for name in expected})
-            self.assertEqual(library.publish(inst, Path(tmp))['counts'], {'unchanged': 5})
+            self.assertEqual(result['counts'], {'installed': 10})
+            self.assertEqual(set(files), expected)
+            self.assertEqual(library.publish(inst, Path(tmp))['counts'], {'unchanged': 10})
 
     def test_bundle_has_no_removed_segmentation_or_captioning_dependencies(self):
         entry = next(e for e in library.load_catalog()['workflows']
@@ -39,5 +38,5 @@ class Pixal3DRevisionTests(unittest.TestCase):
         self.assertEqual(len(entries), 1)
         # Stable catalog identity remains unchanged for installed revision tracking.
         self.assertEqual(entries[0]['id'], 'minimax-h3-r2v-mix')
-        self.assertEqual(entries[0]['title'], 'RCP_video_minimax_h3_r2v')
-        self.assertEqual(entries[0]['file'], 'RCP_video_minimax_h3_r2v.json')
+        self.assertEqual(entries[0]['title'], 'RCPlocal_r2v_video_minimax_h3')
+        self.assertEqual(entries[0]['file'], 'RCPlocal_r2v_video_minimax_h3.json')

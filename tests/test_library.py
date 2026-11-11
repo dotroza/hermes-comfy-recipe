@@ -21,6 +21,45 @@ def fixture(root, count=1):
     return catalog
 
 class PublicationTests(unittest.TestCase):
+    def test_entry_folders_preserve_legacy_and_edited_working_copies(self):
+        with tempfile.TemporaryDirectory() as tmp, comfy_server() as env:
+            inst, files, events, *_ = env
+            root = Path(tmp) / 'assets'; root.mkdir(); c = fixture(root, 2)
+            c['workflows'][0]['folder'] = 'Local Recipe'
+            c['workflows'][1]['folder'] = 'Cloud Recipe'
+            (root / 'catalog.json').write_text(json.dumps(c), encoding='utf-8')
+            legacy = 'workflows/Comfy Recipe/workflow-0.json'
+            edited = 'workflows/Local Recipe/workflow-0.json'
+            files[legacy] = {'legacy': 'keep'}; files[edited] = {'edited': 'keep'}
+            before = dict(files)
+            result = library.publish(inst, Path(tmp) / 'state', root=root)
+            self.assertEqual(result['counts'], {'conflict': 1, 'installed': 1})
+            self.assertEqual({k: files[k] for k in before}, before)
+            self.assertIn('workflows/Cloud Recipe/workflow-1.json', files)
+            self.assertTrue(all('/api/userdata' in p for _, p in events))
+            sibling = library.publish(inst, Path(tmp) / 'state', versioned=True, root=root)
+            self.assertEqual(sibling['counts'], {'installed': 2})
+            self.assertIn('workflows/Local Recipe/workflow-0-v1.0.0.json', files)
+            self.assertEqual({k: files[k] for k in before}, before)
+
+    def test_real_catalog_publish_leaves_old_folder_and_cloud_edits_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp, comfy_server() as env:
+            inst, files, events, *_ = env
+            catalog = library.load_catalog()['workflows']
+            legacy = 'workflows/Comfy Recipe/RCP_qwen_image_2_1_t2i.json'
+            cloud = next(e for e in catalog if e['id'] == 'cloud-seedream-5-0-pro-ti2i')
+            edited = 'workflows/' + cloud['folder'] + '/' + cloud['file']
+            files[legacy] = {'user_edit': 'legacy'}
+            files[edited] = {'user_edit': 'cloud'}
+            result = library.publish(inst, Path(tmp))
+            self.assertEqual(result['counts'], {'installed': 9, 'conflict': 1})
+            self.assertEqual(files[legacy], {'user_edit': 'legacy'})
+            self.assertEqual(files[edited], {'user_edit': 'cloud'})
+            expected = {'workflows/' + e['folder'] + '/' + e['file'] for e in catalog}
+            self.assertEqual(set(files), expected | {legacy})
+            self.assertTrue(all(path.startswith('/api/userdata') for _, path in events),
+                            'Publication must never queue paid API runs')
+
     def test_first_publish_readback_and_repeat(self):
         with tempfile.TemporaryDirectory() as tmp, comfy_server() as env:
             inst,files,events,*_=env; root=Path(tmp)/'assets'; root.mkdir(); fixture(root,6)
@@ -106,6 +145,35 @@ class PublicationTests(unittest.TestCase):
 
 
 class CatalogTests(unittest.TestCase):
+    def test_unsafe_publication_folders_rejected_before_network(self):
+        from unittest.mock import patch
+        for folder in ('', '.', '..', '../outside', 'Local/Recipe', 'Local\\Recipe',
+                       '/outside', 'C:outside', 'C:/outside', 'Local Recipe/',
+                       ' Local Recipe', 'Local Recipe ', 'CON', 'bad\x00folder', None, 7):
+            with self.subTest(folder=folder), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); c = fixture(root)
+                c['workflows'][0]['folder'] = folder
+                (root / 'catalog.json').write_text(json.dumps(c), encoding='utf-8')
+                with patch.object(library.cc, 'list_workflows') as network:
+                    with self.assertRaisesRegex(ValueError, 'folder'):
+                        library.publish({'url': 'http://unused'}, root / 'state', root=root)
+                    network.assert_not_called()
+
+    def test_same_filename_allowed_only_in_different_folders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); c = fixture(root, 2)
+            (root / 'nested').mkdir()
+            (root / 'nested/workflow-0.json').write_bytes((root / 'workflow-1.json').read_bytes())
+            c['workflows'][1]['file'] = 'nested/workflow-0.json'
+            c['workflows'][0]['folder'] = 'Local Recipe'
+            c['workflows'][1]['folder'] = 'Cloud Recipe'
+            (root / 'catalog.json').write_text(json.dumps(c), encoding='utf-8')
+            self.assertEqual(len(library.load_catalog(root)['workflows']), 2)
+            c['workflows'][1]['folder'] = 'local recipe'
+            (root / 'catalog.json').write_text(json.dumps(c), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'Duplicate working-copy'):
+                library.load_catalog(root)
+
     def test_local_minimax_is_not_labelled_paid_api(self):
         entries=library.load_catalog()['workflows']
         mini=[e for e in entries if e['id'].startswith('minimax-')]
@@ -113,11 +181,11 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(all(e['requirements']['models'] for e in mini))
         self.assertTrue(all(e['requirements']['services']==[] for e in mini))
 
-    def test_shipped_five_assets_are_unique(self):
+    def test_shipped_ten_assets_are_unique(self):
         c=library.load_catalog()
-        self.assertEqual(len(c['workflows']),5)
+        self.assertEqual(len(c['workflows']),10)
         ids=[library.load_asset(e)['id'] for e in c['workflows']]
-        self.assertEqual(len(set(ids)),5)
+        self.assertEqual(len(set(ids)),10)
 
     def test_duplicate_destination_filename_and_uuid_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

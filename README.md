@@ -26,10 +26,16 @@ where the time goes.
 
 ## Shared workflows and native skills
 
-Five RCP workflow definitions ship with the plugin and are added to the managed instance's **Workflows → Comfy Recipe**
-folder after startup. User copies are never overwritten; dependencies can be installed after setup or on demand, with consent.
+Ten workflow definitions ship with library 1.4.0: five in **Workflows → Local Recipe** and five in
+**Workflows → Cloud Recipe**, added to the managed instance after startup. User copies are never overwritten; dependencies can be installed after setup or on demand, with consent.
 Native Hermes skills stay in `plugin/skills/` and may reference zero, one or multiple shared workflow IDs. There is no
-separate recipe engine or registry. See [the workflow-library guide](docs/WORKFLOW_LIBRARY.md) for authoring and updates.
+separate recipe engine or registry. See [the workflow-library guide](docs/WORKFLOW_LIBRARY.md) for exact filenames,
+stable IDs, authoring and updates. Cloud workflows require ComfyUI login and credits; copying definitions never
+queues a paid run. Obtain explicit approval before paid execution and never embed credentials.
+
+Qwen image editing uses an explicit change plus keep-list composed by Hermes, `refine_prompt` OFF, 4 steps and
+Lightning ON by default. Text-to-image uses light wording cleanup and built-in refinement, as described below.
+Neither policy overrides explicit user settings.
 
 Use `comfy_workflows action=library` (offline), `action=install` (copy only), or `action=check workflow=<stable ID>`
 (read-only requirements). Commands: `/comfy library`, `/comfy library install`, `/comfy check <stable ID>`.
@@ -38,8 +44,10 @@ Use `comfy_workflows action=library` (offline), `action=install` (copy only), or
 
 After a new managed installation, choose independently whether to install missing node packs now (recommended)
 and download missing models now (with verified GB) or on use. Then describe your first image in this chat:
-the bundled Hermes Qwen prompt-writing skill enhances it and the agent generates it visibly. Skip with
-“skip tutorial”, or replay with `/comfy tutorial`. Returning sessions open normally; the other five lessons are held.
+Hermes lightly cleans the wording without imposing a pose, setting or palette; Qwen's Image Gen
+`refine_prompt` is ON (25 steps, Lightning disabled at strength 0) for creative expansion, unless explicitly overridden.
+The agent generates it visibly. Skip with
+“skip tutorial”, or replay with `/comfy tutorial`. Returning sessions open normally; step 2 teaches image editing, and steps 3–6 are held.
 See [onboarding details](docs/ONBOARDING.md). Add redistributable references under [plugin/assets](plugin/assets/README.md).
 
 ## Visible vs headless
@@ -88,7 +96,7 @@ plugin/
   library.py            shared catalog + protected working-copy publication
   dependencies.py       read-only workflow requirements and Manager installation guidance
   skill_registration.py native skill discovery + optional workflow ID references
-  workflows/            five versioned UI-format JSON assets + catalog.json
+  workflows/            ten versioned UI-format JSON assets (local + cloud) + catalog.json
   comfy_client.py       stdlib HTTP client for the ComfyUI API
   convert_bridge.py     UI→API conversion via comfy-cli + two fixes it needs (subgraph socket values, viewer nodes)
   desktop/plugin.js     desktop half: sidebar entry + "New ComfyUI session"

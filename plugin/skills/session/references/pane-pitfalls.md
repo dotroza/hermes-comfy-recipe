@@ -44,7 +44,7 @@
   The jobs panel `More options` menu only has `Clear job history`.
 
 - `Menu -> File -> Save As` names the file relative to the CURRENT workflow's folder: typing
-  `Comfy Recipe/<name>` from a tab in `Comfy Recipe/` created `Comfy Recipe/Comfy Recipe/<name>.json`. Type only the
+  `Local Recipe/<name>` from a tab in `Local Recipe/` creates `Local Recipe/Local Recipe/<name>.json` (the same folder-relative rule applies to `Cloud Recipe/`). Type only the
   name. To fix a misplaced file: close its clean tab, move the file on disk, Workflows sidebar `Refresh`, reopen.
 - Off-screen widgets ("still off-screen after scrolling"): right panel `Nodes` tab -> type the node title in
   `Search ...` -> the panel shows that node's widgets (switches, file buttons, textareas) directly; act on them there.
