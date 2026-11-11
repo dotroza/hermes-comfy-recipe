@@ -1,4 +1,6 @@
-![Comfy Recipe — chef cat icon](plugin/assets/images/comfy-recipe-icon.png)
+<p align="center">
+  <img src="plugin/assets/images/comfy-recipe-icon.png" alt="Comfy Recipe — chef cat icon" width="256">
+</p>
 
 # Comfy Recipe — a Hermes Agent plugin for ComfyUI
 
