@@ -158,6 +158,15 @@ without an interactive clarification tool, first-run instructions ask in chat an
   OAuth client. It does not read credential stores or implement token refresh. Cloud workflow authentication
   belongs to ComfyUI's official API-node sign-in; use that UI, never give credentials to the agent. Paid runs send
   prompts/media to the selected provider and require explicit approval for each execution.
+- **Child processes:** ComfyUI, its custom nodes, uv/pip, git, comfy-cli, ffmpeg and the plugin's workers get an
+  explicit allow-listed environment (PATH, home/temp, Windows system folders, locale, proxies/CA bundles, `CUDA_*`,
+  `HF_*`, ...), never a copy of Hermes' environment; names that look like secrets (`*TOKEN*`, `*API_KEY*`, ...)
+  are dropped, so provider keys do not reach them.
+- **Network:** model downloads and size lookups go to public `https` hosts only. The host is resolved and checked on
+  the first request, on every redirect hop and on the connected address: private, loopback, link-local
+  (`169.254.169.254`) and other internal addresses are refused. `http://localhost` mirrors need `allow_local_mirrors`.
+- **Files written by `comfy_media`:** next to the source by default; an explicit `out`/`out_dir` must stay in the
+  source's folder, the plugin data folder or the instance's `input/`/`output/`. Existing files are never overwritten.
 - **Telemetry and updates:** the plugin adds no telemetry or usage reporting and never replaces its own code.
   Catalog updates arrive only through reviewed SHA-pin updates and `hermes plugins update comfy-recipe`.
   ComfyUI, custom nodes and providers are separate upstream software with their own policies.
@@ -171,6 +180,7 @@ without an interactive clarification tool, first-run instructions ask in chat an
 | `extra_urls` | `[]` | ComfyUI servers on other ports, e.g. `["http://127.0.0.1:8283"]`. |
 | `converter_python` | auto | A Python with comfy-cli, if auto-detection misses it. |
 | `stop_with_hermes` | `true` | Stop Comfy Recipe's own ComfyUI when Hermes is closed (frees GPU memory). Off = keep it running in the background. |
+| `allow_local_mirrors` | `false` | Accept model links to this machine (`http://localhost` / `127.0.0.1` mirrors). Other private addresses stay refused. |
 
 `/comfy setup` shows what is detected. Runtime data (instance list, object_info cache, run and timing logs, contact
 sheets) lives in `<hermes home>/plugin-data/comfy-recipe/`, never in the plugin folder.

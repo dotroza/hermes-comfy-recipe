@@ -82,7 +82,7 @@ def documents_dir() -> Path:
             pass
     elif shutil.which("xdg-user-dir"):
         try:
-            r = subprocess.run(["xdg-user-dir", "DOCUMENTS"], capture_output=True, text=True, timeout=5)
+            r = subprocess.run(["xdg-user-dir", "DOCUMENTS"], capture_output=True, text=True, timeout=5, env=child_env())
             if r.stdout.strip() and Path(r.stdout.strip()) != Path.home():
                 return Path(r.stdout.strip())
         except Exception:
@@ -168,13 +168,49 @@ def manifest(d) -> dict | None:
     return _read(_meta(d) / "manifest.json")
 
 
-def _clean_env() -> dict:
-    """Hermes injects PYTHONPATH etc.; ComfyUI's venv must not see them."""
-    drop = {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "CONDA_PREFIX", "PYTHONSTARTUP"}
-    env = {k: v for k, v in os.environ.items() if k.upper() not in drop}
+# Child processes (ComfyUI and its custom nodes, uv/pip, git, comfy-cli, ffmpeg, the plugin's own workers) get an
+# explicit allow-list of environment variables, never a copy of Hermes' environment: Hermes holds provider API keys.
+_ENV_NAMES = {
+    # executables, home and temp
+    "PATH", "PATHEXT", "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "USER", "USERNAME", "LOGNAME", "SHELL",
+    "TEMP", "TMP", "TMPDIR",
+    # Windows system folders (Python, git, CUDA and PyTorch need several of these to start)
+    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "PROGRAMFILES",
+    "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)", "COMMONPROGRAMW6432",
+    "ALLUSERSPROFILE", "PUBLIC", "COMPUTERNAME", "DRIVERDATA", "OS", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE",
+    "PROCESSOR_IDENTIFIER", "PROCESSOR_LEVEL", "PROCESSOR_REVISION",
+    # locale / time
+    "LANG", "LANGUAGE", "TZ",
+    # desktop session (Linux/macOS)
+    "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS",
+    # GPU libraries
+    "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+    # network: proxies and CA bundles (model/package downloads behind a corporate proxy)
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE", "GIT_SSL_CAINFO",
+}
+_ENV_PREFIXES = ("LC_", "XDG_", "CUDA_", "NVIDIA_", "HIP_", "ROCM_", "HSA_", "PYTORCH_", "HF_", "UV_", "PIP_",
+                 "COMFYUI_")
+_ENV_SECRET = re.compile(r"TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|ACCESS_?KEY|CREDENTIAL|AUTH", re.I)
+
+
+def child_env(extra: dict | None = None) -> dict:
+    """Minimal environment for a child process: the allow-list above (names that look like secrets are dropped even
+    when matched only by prefix, e.g. HF_TOKEN, UV_PUBLISH_TOKEN), UTF-8 I/O, plus ``extra``. PYTHONPATH/PYTHONHOME/
+    VIRTUAL_ENV from Hermes' own Python never reach ComfyUI's venv."""
+    env = {}
+    for k, v in os.environ.items():
+        name = k.upper()
+        if name in _ENV_NAMES or (name.startswith(_ENV_PREFIXES) and not _ENV_SECRET.search(name)):
+            env[k] = v
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    env.update(extra or {})
     return env
+
+
+def _clean_env() -> dict:
+    return child_env()
 
 
 def _run(cmd, **kw) -> subprocess.CompletedProcess:

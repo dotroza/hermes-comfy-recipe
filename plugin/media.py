@@ -1,7 +1,10 @@
 """Video/image preparation for ComfyUI inputs (comfy_media tool).
 
 Everything runs through ffmpeg/ffprobe on PATH. Outputs are written NEXT TO THE SOURCE file (never over it) and
-every output is probed back before it is reported. `to_input=True` also copies the result into the ComfyUI
+every output is probed back before it is reported. An explicit `out`/`out_dir` must stay inside the source file's
+folder, the plugin data folder or the ComfyUI instance's input/ or output/ folder. Existing files are never
+overwritten: ffmpeg renders to a temporary sibling that is moved into place only when the target does not exist
+(a default output name gets a _1, _2 ... suffix instead; an explicit `out` that exists is refused). `to_input=True` also copies the result into the ComfyUI
 instance's `input/` folder, reusing a byte-identical file that is already there and never overwriting an
 unrelated file with the same name.
 
@@ -17,8 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
+import uuid
+from contextvars import ContextVar
 from fractions import Fraction
 from pathlib import Path
 
@@ -34,8 +40,16 @@ def _bins() -> tuple[str, str]:
     return ff, fp
 
 
+def _env() -> dict:
+    try:
+        from .installer import child_env
+    except ImportError:  # pragma: no cover - loaded outside the package
+        from installer import child_env  # type: ignore
+    return child_env()
+
+
 def _run(args: list[str]) -> None:
-    r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=_env())
     if r.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {(r.stderr or '').strip()[-800:]}")
 
@@ -52,7 +66,8 @@ def probe(path: str | Path) -> dict:
         raise FileNotFoundError(str(p))
     r = subprocess.run([fp, "-v", "error", "-count_packets", "-show_entries",
                         "stream=index,codec_type,codec_name,width,height,r_frame_rate,nb_read_packets:format=duration",
-                        "-of", "json", str(p)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+                        "-of", "json", str(p)], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       env=_env())
     if r.returncode != 0:
         raise RuntimeError(f"ffprobe failed: {r.stderr.strip()[-400:]}")
     d = json.loads(r.stdout or "{}")
@@ -69,16 +84,67 @@ def probe(path: str | Path) -> dict:
     return info
 
 
-def _out(src: Path, suffix: str, ext: str | None = None, out: str | None = None) -> Path:
-    if out:
-        o = Path(out)
-        o = o if o.is_absolute() else src.parent / o
-    else:
-        o = src.with_name(f"{src.stem}_{suffix}{ext or src.suffix}")
-    if o.resolve() == src.resolve():
+# Extra folders an explicit out/out_dir may point into besides the source file's folder: a list of paths or a
+# zero-argument callable returning one (evaluated only when needed). handle() passes the plugin data folder and the
+# instance's input/ and output/ folders; direct calls allow the source folder only.
+_ROOTS: ContextVar = ContextVar("comfy_media_roots", default=())
+
+
+def _allowed_roots(src: Path, roots) -> list[Path]:
+    extra = roots() if callable(roots) else (roots or [])
+    return [src.parent.resolve()] + [Path(r).resolve() for r in extra]
+
+
+def _place(src: Path, out: str | Path | None, default: Path, roots=None) -> Path:
+    """Final output path. out (relative = next to the source) must stay inside an allowed folder and must not
+    exist; the default name moves to a free _1, _2 ... sibling instead."""
+    explicit = bool(out)
+    o = Path(out) if explicit else Path(default)
+    o = (o if o.is_absolute() else src.parent / o).resolve()
+    if o == src.resolve():
         raise ValueError("output would overwrite the source file")
+    if not o.is_relative_to(src.parent.resolve()):
+        allowed = _allowed_roots(src, _ROOTS.get() if roots is None else roots)
+        if not any(o.is_relative_to(r) for r in allowed):
+            raise ValueError(f"output {o} is outside the allowed folders (the source file's folder, the plugin data "
+                             f"folder, the ComfyUI input/ or output/ folder)")
+    if o.exists():
+        if explicit:
+            raise FileExistsError(f"{o} already exists - choose another output name (existing files are never "
+                                  "overwritten)")
+        k = 1
+        while o.with_name(f"{o.stem}_{k}{o.suffix}").exists():
+            k += 1
+        o = o.with_name(f"{o.stem}_{k}{o.suffix}")
     o.parent.mkdir(parents=True, exist_ok=True)
     return o
+
+
+def _out(src: Path, suffix: str, ext: str | None = None, out: str | None = None, roots=None) -> Path:
+    return _place(src, out, src.with_name(f"{src.stem}_{suffix}{ext or src.suffix}"), roots)
+
+
+def _commit(tmp: Path, target: Path) -> None:
+    """Move tmp to target only if target does not exist (atomic on both platforms)."""
+    try:
+        if os.name == "nt":
+            os.rename(tmp, target)  # raises FileExistsError instead of replacing
+        else:
+            os.link(tmp, target)  # raises FileExistsError instead of replacing
+            tmp.unlink()
+    except FileExistsError:
+        tmp.unlink(missing_ok=True)
+        raise FileExistsError(f"{target} appeared while rendering - not overwritten") from None
+
+
+def _render(args: list[str], o: Path) -> None:
+    """Run ffmpeg into a fresh temporary sibling of o (-n: never overwrite), then move it into place."""
+    tmp = o.with_name(f".{o.stem}.{uuid.uuid4().hex[:8]}.part{o.suffix}")
+    try:
+        _run(args + ["-n", str(tmp)])
+        _commit(tmp, o)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _scale_filter(width: int | None, height: int | None, mode: str) -> list[str]:
@@ -97,7 +163,7 @@ def _scale_filter(width: int | None, height: int | None, mode: str) -> list[str]
 
 def convert(path: str, start: float | None = None, duration: float | None = None, end: float | None = None,
             width: int | None = None, height: int | None = None, fps: float | None = None, mode: str = "cover",
-            out: str | None = None) -> dict:
+            out: str | None = None, _default: Path | None = None) -> dict:
     ff, _ = _bins()
     src = Path(path)
     info = probe(src)
@@ -119,17 +185,16 @@ def convert(path: str, start: float | None = None, duration: float | None = None
     if src.suffix.lower() in IMAGE_EXTS:
         if start or duration or fps:
             raise ValueError("a still image can only be resized (width/height/mode)")
+        if Path(out or "x.png").suffix.lower() not in IMAGE_EXTS:
+            raise ValueError(f"image output must keep an image extension, not {Path(out).suffix!r}")
         o = _out(src, "_".join(parts), src.suffix.lower(), out)
-        if o.suffix.lower() not in IMAGE_EXTS:
-            raise ValueError(f"image output must keep an image extension, not {o.suffix!r}")
-        _run([ff, "-v", "error", "-y", "-i", str(src), "-vf", ",".join(filters), "-frames:v", "1", "-update", "1",
-              str(o)])
+        _render([ff, "-v", "error", "-i", str(src), "-vf", ",".join(filters), "-frames:v", "1", "-update", "1"], o)
         return {"action": "convert", "source": info, "output": probe(o)}
-    o = _out(src, "_".join(parts), ".mp4", out)
-    args = [ff, "-v", "error", "-y"] + (["-ss", str(start)] if start else []) + ["-i", str(src)]
+    o = _place(src, out, _default) if _default is not None else _out(src, "_".join(parts), ".mp4", out)
+    args = [ff, "-v", "error"] + (["-ss", str(start)] if start else []) + ["-i", str(src)]
     args += (["-t", str(duration)] if duration else []) + (["-vf", ",".join(filters)] if filters else [])
-    args += VIDEO_ARGS + (AUDIO_ARGS if info["has_audio"] else ["-an"]) + [str(o)]
-    _run(args)
+    args += VIDEO_ARGS + (AUDIO_ARGS if info["has_audio"] else ["-an"])
+    _render(args, o)
     return {"action": "convert", "source": info, "output": probe(o)}
 
 
@@ -155,14 +220,14 @@ def frames(path: str, which: list | str = ("first", "last"), out_dir: str | None
             if n and not 0 <= idx < n:
                 raise ValueError(f"frame {idx} out of range 0..{n - 1}")
             sel, tag = f"eq(n\\,{idx})", f"f{idx}"
-        o = Path(out_dir) / f"{src.stem}_{tag}.png" if out_dir else src.with_name(f"{src.stem}_{tag}.png")
-        o.parent.mkdir(parents=True, exist_ok=True)
+        name = f"{src.stem}_{tag}.png"
+        o = _place(src, None, (Path(out_dir) / name) if out_dir else src.with_name(name))
         if sel:
-            args = [ff, "-v", "error", "-y", "-i", str(src), "-vf", f"select={sel}", "-fps_mode", "passthrough",
-                    "-frames:v", "1", "-update", "1", str(o)]
+            args = [ff, "-v", "error", "-i", str(src), "-vf", f"select={sel}", "-fps_mode", "passthrough",
+                    "-frames:v", "1", "-update", "1"]
         else:
-            args = [ff, "-v", "error", "-y", "-ss", w[2:], "-i", str(src), "-frames:v", "1", "-update", "1", str(o)]
-        _run(args)
+            args = [ff, "-v", "error", "-ss", w[2:], "-i", str(src), "-frames:v", "1", "-update", "1"]
+        _render(args, o)
         if not o.is_file() or o.stat().st_size == 0:
             raise RuntimeError(f"no frame written for {w!r}")
         outs.append({"which": w, "path": str(o), "width": info.get("width"), "height": info.get("height")})
@@ -186,7 +251,7 @@ def split(path: str, seconds: float, out_dir: str | None = None, chained: bool =
         name = f"{src.stem}_seg{k:02d}_{_num(round(s, 3))}-{_num(round(s + d, 3))}s.mp4"
         o = (Path(out_dir) / name) if out_dir else src.with_name(name)
         outs.append(convert(str(src), start=s or None, duration=d, width=width, height=height, fps=fps,
-                            mode=mode, out=str(o))["output"])
+                            mode=mode, _default=o)["output"])
         s += seconds
         k += 1
     return {"action": "split", "source": info, "chained": chained, "outputs": outs}
@@ -204,7 +269,7 @@ def join(paths: list[str], out: str | None = None, drop_first: int = 0) -> dict:
     audio = all(i["has_audio"] for i in infos)
     first = Path(paths[0])
     o = _out(first, "joined", ".mp4", out)
-    args = [ff, "-v", "error", "-y"]
+    args = [ff, "-v", "error"]
     for p in paths:
         args += ["-i", str(p)]
     chains, labels = [], ""
@@ -220,8 +285,8 @@ def join(paths: list[str], out: str | None = None, drop_first: int = 0) -> dict:
         labels += f"[v{k}]" + (f"[a{k}]" if audio else "")
     fc = ";".join(chains) + f";{labels}concat=n={len(paths)}:v=1:a={1 if audio else 0}[v]" + ("[a]" if audio else "")
     args += ["-filter_complex", fc, "-map", "[v]"] + (["-map", "[a]"] if audio else [])
-    args += VIDEO_ARGS + (AUDIO_ARGS if audio else ["-an"]) + [str(o)]
-    _run(args)
+    args += VIDEO_ARGS + (AUDIO_ARGS if audio else ["-an"])
+    _render(args, o)
     res = {"action": "join", "inputs": infos, "drop_first": drop_first, "output": probe(o)}
     if not audio and any(i["has_audio"] for i in infos):
         res["warning"] = "some clips had no audio track - output has no audio"
@@ -255,8 +320,8 @@ def mux(path: str, audio: str, out: str | None = None, music_volume: float | Non
     else:
         fc = music.replace("[m]", "[a]")
     o = _out(src, "with_sound", ".mp4", out)
-    _run([ff, "-v", "error", "-y", "-i", str(src), "-i", str(track), "-filter_complex", fc,
-          "-map", "0:v:0", "-map", "[a]", "-c:v", "copy"] + AUDIO_ARGS + ["-t", f"{dur:.3f}", str(o)])
+    _render([ff, "-v", "error", "-i", str(src), "-i", str(track), "-filter_complex", fc,
+             "-map", "0:v:0", "-map", "[a]", "-c:v", "copy"] + AUDIO_ARGS + ["-t", f"{dur:.3f}"], o)
     res = {"action": "mux", "source": info, "audio": ainfo, "mode": "mix" if info["has_audio"] else "soundtrack",
            "music_volume": vol, "output": probe(o)}
     if not res["output"].get("has_audio"):
@@ -271,8 +336,8 @@ def sheet(path: str, count: int = 8, columns: int = 4, out: str | None = None) -
     dur = max(info["duration_s"], 0.04)
     rows = -(-count // columns)
     o = _out(src, "sheet", ".jpg", out)
-    _run([ff, "-v", "error", "-y", "-i", str(src), "-vf", f"fps={count}/{dur},scale=270:-1,tile={columns}x{rows}",
-          "-frames:v", "1", "-update", "1", str(o)])
+    _render([ff, "-v", "error", "-i", str(src), "-vf", f"fps={count}/{dur},scale=270:-1,tile={columns}x{rows}",
+             "-frames:v", "1", "-update", "1"], o)
     return {"action": "sheet", "source": info, "path": str(o),
             "layout": f"{columns}x{rows}, {count} frames evenly spaced over {dur:.2f}s (row-major)"}
 
@@ -311,10 +376,20 @@ def _output_paths(res: dict) -> list[str]:
     return [res["path"]] if "path" in res else []
 
 
-def handle(p: dict, input_dir_for=None) -> dict:
+def handle(p: dict, input_dir_for=None, allowed_roots=None) -> dict:
+    """allowed_roots: extra folders an explicit out/out_dir may use (list or zero-argument callable)."""
     a = p.get("action", "probe")
     if a == "probe":
         return probe(p["path"])
+    token = _ROOTS.set(allowed_roots or ())
+    try:
+        res = _action(p, a)
+    finally:
+        _ROOTS.reset(token)
+    return _finish(p, a, res, input_dir_for)
+
+
+def _action(p: dict, a: str) -> dict:
     if a == "convert":
         res = convert(p["path"], p.get("start"), p.get("duration"), p.get("end"), p.get("width"), p.get("height"),
                       p.get("fps"), p.get("mode") or "cover", p.get("out"))
@@ -332,6 +407,10 @@ def handle(p: dict, input_dir_for=None) -> dict:
                   0.5 if p.get("fade_out") is None else float(p["fade_out"]))
     else:
         raise ValueError(f"unknown action {a!r}")
+    return res
+
+
+def _finish(p: dict, a: str, res: dict, input_dir_for) -> dict:
     if p.get("to_input") and a != "sheet":
         if input_dir_for is None:
             raise RuntimeError("no ComfyUI instance to copy into")

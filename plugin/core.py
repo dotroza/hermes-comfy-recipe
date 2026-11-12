@@ -33,6 +33,7 @@ SETTINGS: dict = {
     "stabilitymatrix_dirs": [],  # StabilityMatrix data folders (portable installs), e.g. ["D:/StabilityMatrix/Data"]
     "converter_python": "",      # a Python with comfy-cli installed; empty = auto-detect
     "stop_with_hermes": True,    # stop Comfy Recipe's own ComfyUI when Hermes (the desktop app) is closed
+    "allow_local_mirrors": False,  # accept model links to this machine (http(s)://localhost mirrors)
 }
 
 
@@ -597,7 +598,7 @@ def find_converter(refresh: bool = False) -> dict:
     for py in _converter_candidates():
         if not Path(py).exists():
             continue
-        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        env = installer.child_env()
         r = subprocess.run([py, "-c", "import comfy_cli.workflow_to_api"], capture_output=True, text=True, env=env, timeout=60)
         tried.append(py)
         if r.returncode == 0:
@@ -613,7 +614,7 @@ def _convert(inst: dict, wf: dict, host_overrides: list[dict]) -> dict:
     conv = find_converter()
     if not conv["ok"]:
         raise RuntimeError(conv["hint"])
-    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env = installer.child_env()
     req = {"workflow": wf, "object_info_path": str(_object_info_path(inst)), "host_overrides": host_overrides}
     r = subprocess.run([conv["python"], str(PLUGIN_DIR / "convert_bridge.py")], input=json.dumps(req), capture_output=True,
                        text=True, encoding="utf-8", env=env, timeout=180)
@@ -864,20 +865,21 @@ def _media_check(path: Path) -> dict:
     if not (ffprobe and ffmpeg):
         return {"note": "ffmpeg/ffprobe not on PATH - no video checks"}
     pr = json.loads(subprocess.run([ffprobe, "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,r_frame_rate,nb_frames",
-                                    "-show_entries", "format=duration", "-of", "json", str(path)], capture_output=True, text=True).stdout or "{}")
+                                    "-show_entries", "format=duration", "-of", "json", str(path)], capture_output=True, text=True,
+                                   env=installer.child_env()).stdout or "{}")
     dur = float(pr.get("format", {}).get("duration", 0) or 0)
     info = {"duration_s": round(dur, 2), "streams": pr.get("streams", [])}
     if dur:
         sheet = DATA / "frames" / (path.stem + "_contact.png")
         sheet.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run([ffmpeg, "-v", "error", "-y", "-i", str(path), "-vf", f"fps=8/{dur},scale=270:-1,tile=4x2",
-                        "-frames:v", "1", str(sheet)], capture_output=True)
+                        "-frames:v", "1", str(sheet)], capture_output=True, env=installer.child_env())
         if sheet.exists():
             info["contact_sheet"] = str(sheet)
             info["contact_sheet_layout"] = f"4x2 frames, evenly spaced over {dur:.1f}s (row-major)"
     if any(s.get("codec_type") == "audio" for s in info["streams"]):
         vd = subprocess.run([ffmpeg, "-v", "info", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"],
-                            capture_output=True, text=True).stderr
+                            capture_output=True, text=True, env=installer.child_env()).stderr
         info["audio"] = dict(re.findall(r"(mean_volume|max_volume): (-?[\d.]+) dB", vd))
     return info
 

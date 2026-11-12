@@ -23,11 +23,14 @@ def _nodes(workflow: dict) -> tuple[list[dict], set[str]]:
 
 
 def remote_size(url: str, timeout: float = 8.0) -> int | None:
-    """Best-effort download size (HEAD, redirects followed). None when unknown - never blocks the report."""
+    """Best-effort download size (HEAD, redirects followed). None when unknown - never blocks the report.
+    Same public-host rules as the downloads (safe_http): private/loopback/link-local hosts and hops are refused."""
     import urllib.request
+    from . import core, safe_http
     try:
         req = urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'comfy-recipe'})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with safe_http.urlopen(req, timeout=timeout,
+                               allow_local=bool(core.SETTINGS.get('allow_local_mirrors'))) as r:
             size = r.headers.get('x-linked-size') or r.headers.get('Content-Length')
             return int(size) if size and int(size) > 0 else None
     except Exception:

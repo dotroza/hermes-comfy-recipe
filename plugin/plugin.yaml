@@ -8,6 +8,8 @@ author: dotroza
 homepage: https://github.com/dotroza/hermes-comfy-recipe
 license: MIT
 requires_hermes: ">=0.23.1"
+python_dependencies:
+  - "PyYAML>=6,<7"
 provides_tools:
   - comfy_setup
   - comfy_onboarding
@@ -49,6 +51,12 @@ config_schema:
     description: >
       Stop Comfy Recipe's own ComfyUI when you close Hermes (the desktop app; or the Hermes process when there is no
       desktop app), so it does not keep holding GPU memory. Turn off to keep it running in the background.
+  allow_local_mirrors:
+    type: boolean
+    default: false
+    description: >
+      Accept model download links that point at this machine (http://localhost or 127.0.0.1 mirrors). Off by
+      default: downloads only go to public https hosts, and private or internal addresses are always refused.
   converter_python:
     type: string
     default: ""

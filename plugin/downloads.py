@@ -19,13 +19,13 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from urllib import request
 from urllib.error import HTTPError
-from urllib.parse import urlsplit
 
 try:  # imported as plugin.downloads, or run as a script by the detached worker
-    from . import installer
+    from . import installer, safe_http
 except ImportError:  # pragma: no cover - script mode
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import installer  # type: ignore
+    import safe_http  # type: ignore
 
 CHUNK = 1 << 20
 WRITE_EVERY_S = 0.5
@@ -119,13 +119,10 @@ def safe_target(models_root, folder: str, name: str) -> Path:
     return target
 
 
-def safe_url(url: str) -> str:
-    u = urlsplit(str(url or ''))
-    if u.scheme == 'https' and u.netloc:
-        return url
-    if u.scheme == 'http' and u.hostname in ('127.0.0.1', 'localhost'):  # local mirrors and tests
-        return url
-    raise ValueError(f'Only https download links are accepted: {url!r}')
+def safe_url(url: str, allow_local: bool = False) -> str:
+    """Queue-time check (offline): https only, no literal private/loopback address. Hosts are resolved and checked
+    again on every request and redirect hop by safe_http. allow_local = the allow_local_mirrors plugin setting."""
+    return safe_http.check_url(url, allow_local=allow_local, resolve=False)
 
 
 # ---------------------------------------------------------------- queue
@@ -134,7 +131,7 @@ def _sort_key(item: dict):
 
 
 def enqueue(install_dir, models_root, models: list[dict], *, group: str = 'other', priority: int | None = None,
-            spawn: bool = True) -> dict:
+            spawn: bool = True, allow_local: bool = False) -> dict:
     """Queue model files ({folder, name, url, size_bytes?}) and make sure the worker runs. Already-present files of
     the expected size count as done; queued or finished files are not added twice."""
     install_dir = Path(install_dir)
@@ -153,7 +150,7 @@ def enqueue(install_dir, models_root, models: list[dict], *, group: str = 'other
         seq = max([it.get('seq', 0) for it in q['items']] + [0])
         for m in models:
             target = safe_target(models_root, m['folder'], m['name'])
-            url = safe_url(m.get('url'))
+            url = safe_url(m.get('url'), allow_local)
             key = f"{m['folder']}/{str(m['name']).replace(chr(92), '/')}"
             size = m.get('size_bytes') if isinstance(m.get('size_bytes'), int) and m['size_bytes'] > 0 else None
             old = by_key.get(key)
@@ -164,6 +161,7 @@ def enqueue(install_dir, models_root, models: list[dict], *, group: str = 'other
                 continue
             seq += 1
             item = {'key': key, 'folder': m['folder'], 'name': str(m['name']).replace('\\', '/'), 'url': url,
+                    'allow_local': bool(allow_local),
                     'size_bytes': size, 'group': group, 'priority': prio, 'seq': seq, 'state': 'pending', 'bytes': 0,
                     'workflows': m.get('workflows') or ([m['workflow_id']] if m.get('workflow_id') else [])}
             if target.exists() and (size is None or target.stat().st_size == size):
@@ -303,7 +301,8 @@ def _fetch(item: dict, target: Path, on_bytes) -> None:
     if have:
         headers['Range'] = f'bytes={have}-'
     try:
-        resp = request.urlopen(request.Request(item['url'], headers=headers), timeout=60)
+        resp = safe_http.urlopen(request.Request(item['url'], headers=headers), timeout=60,
+                                 allow_local=bool(item.get('allow_local')))
     except HTTPError as e:
         e.close()
         if e.code == 416 and have and (not size or have == size):  # already complete
@@ -390,6 +389,9 @@ def run(install_dir) -> str:
             try:
                 _fetch(item, target, on_bytes)
                 error = None
+                break
+            except safe_http.BlockedURL as e:  # policy refusal, not a hiccup: no retry
+                error = f'{type(e).__name__}: {e}'
                 break
             except Exception as e:  # network hiccup: resume from the .part file
                 error = f'{type(e).__name__}: {e}'

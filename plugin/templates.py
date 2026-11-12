@@ -38,7 +38,16 @@ def _index(inst: dict, refresh: bool = False) -> list[dict]:
     return out
 
 
+def _safe_name(name, what: str = "template name") -> str:
+    """Template names (and thumbnail extensions) from the server or the agent become cache file names."""
+    name = str(name or "")
+    if not name or "/" in name or "\\" in name or ".." in name or ":" in name or "\0" in name:
+        raise ValueError(f"invalid {what}: {name!r}")
+    return name
+
+
 def _template_json(inst: dict, name: str) -> dict:
+    name = _safe_name(name)
     p = _cache_dir() / f"{name}.json"
     if not p.exists():
         p.write_bytes(cc._req(inst["url"], "/templates/" + parse.quote(name) + ".json", timeout=60))
@@ -79,7 +88,10 @@ def _readiness(inst: dict, wf: dict, installed: dict, object_info: dict) -> dict
 def _thumbnail(inst: dict, t: dict) -> dict:
     ext = t.get("mediaSubtype") or "webp"
     url = f"{inst['url']}/templates/{parse.quote(t['name'])}-1.{ext}"
-    p = _cache_dir() / "thumbs" / f"{t['name']}.{ext}"
+    try:
+        p = _cache_dir() / "thumbs" / f"{_safe_name(t['name'])}.{_safe_name(ext, 'thumbnail type')}"
+    except ValueError:
+        return {"thumbnail_url": url}
     if not p.exists():
         try:
             data = cc._req(inst["url"], f"/templates/{parse.quote(t['name'])}-1.{ext}", timeout=30)
@@ -170,6 +182,8 @@ def describe(name: str, instance: str | None = None) -> dict:
 def save(name: str, folder: str = "templates", new_name: str | None = None, instance: str | None = None) -> dict:
     """Copy a template into the user's workflows (appears in the Workflows sidebar; usable by comfy_run)."""
     inst = core._inst(instance)
+    if folder and (".." in folder.replace("\\", "/").split("/") or ":" in folder):
+        raise ValueError(f"invalid folder: {folder!r}")
     wf = _template_json(inst, name)
     stem = re.sub(r"[^\w.\- ]", "_", new_name or name).strip() or name
     rel = f"workflows/{folder.strip('/')}/{stem}.json" if folder else f"workflows/{stem}.json"

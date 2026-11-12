@@ -261,8 +261,11 @@ SCHEMAS = {
             "chained": {"type": "boolean", "description": "split: each segment starts on the previous segment's last frame (one shared frame) - for segment-by-segment generation that uses the previous output's last frame as first-frame guide."},
             "drop_first": {"type": "integer", "description": "join: drop this many leading frames from every clip after the first (1 for chained segments)."},
             "count": {"type": "integer"}, "columns": {"type": "integer"},
-            "out": {"type": "string", "description": "convert/join/sheet/mux: optional output file (relative = next to source)."},
-            "out_dir": {"type": "string", "description": "frames/split: optional output folder."},
+            "out": {"type": "string", "description": "convert/join/sheet/mux: optional NEW output file (relative = next to "
+                    "source; must stay in the source folder, the plugin data folder or the instance's input/ or output/; "
+                    "an existing file is refused, never overwritten)."},
+            "out_dir": {"type": "string", "description": "frames/split: optional output folder (same folder limits; "
+                        "existing names get a _1, _2 ... suffix)."},
             "to_input": {"type": "boolean", "description": "Also copy outputs into ComfyUI input/."},
             "instance": {"type": "string"}}, "required": ["action"]},
     },
@@ -361,6 +364,19 @@ def _setup(p: dict):
     raise ValueError(f"unknown action {a!r}")
 
 
+def _media_roots(instance: str | None) -> list[Path]:
+    """Folders comfy_media may write into besides the source file's folder: the plugin data folder and the
+    instance's input/ and output/ folders (only when that instance is known)."""
+    roots = [core.DATA]
+    try:
+        root = core._inst(instance).get("root")
+    except Exception:
+        root = None
+    if root:
+        roots += [Path(root) / "input", Path(root) / "output"]
+    return roots
+
+
 HANDLERS = {
     "comfy_onboarding": _onboarding_handler,
     "comfy_downloads": download_flow.handle,
@@ -375,7 +391,8 @@ HANDLERS = {
     "comfy_run": lambda p: core.run(p["workflow"], p.get("prompt"), p.get("overrides"), p.get("images"), p.get("seed"),
                                     p.get("instance"), bool(p.get("dry_run"))),
     "comfy_result": lambda p: core.result(p["prompt_id"], int(p.get("wait_s", 600)), p.get("instance")),
-    "comfy_media": lambda p: media.handle(p, lambda name: Path(core._inst(name)["root"]) / "input"),
+    "comfy_media": lambda p: media.handle(p, lambda name: Path(core._inst(name)["root"]) / "input",
+                                          allowed_roots=lambda: _media_roots(p.get("instance"))),
 }
 
 USAGE = ("/comfy tutorial [1-4] | /comfy downloads | /comfy status | /comfy start | /comfy stop | /comfy switch <instance> | /comfy workflows [filter] | /comfy templates <query> | /comfy library [install] | /comfy check <id> | /comfy setup | "

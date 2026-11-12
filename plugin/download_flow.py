@@ -63,7 +63,8 @@ def queue(progress_dir: Path, models_root: Path, models: list[dict], spawn: bool
             grouped.setdefault(group_for(m['folder'], m['name'], keys), []).append(m)
     result = None
     for group in sorted(grouped, key=lambda g: downloads.GROUP_ORDER.get(g, 5)):
-        result = downloads.enqueue(progress_dir, models_root, grouped[group], group=group, spawn=spawn)
+        result = downloads.enqueue(progress_dir, models_root, grouped[group], group=group, spawn=spawn,
+                                   allow_local=bool(core.SETTINGS.get('allow_local_mirrors')))
     if result is None:
         result = dict(downloads.status(progress_dir), added=[], note='nothing to download')
     result['models_without_url'] = [m for m in models if not m.get('url')]

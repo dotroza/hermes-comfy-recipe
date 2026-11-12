@@ -60,7 +60,8 @@ class MediaTests(unittest.TestCase):
         parts = media.split(str(self.src), 4, out_dir=str(self.dir / "segs"))["outputs"]
         self.assertEqual(len(parts), 3)
         self.assertAlmostEqual(sum(p["duration_s"] for p in parts), 10, delta=0.2)
-        j = media.join([p["path"] for p in parts], out=str(self.dir / "rejoined.mp4"))["output"]
+        j = media.handle({"action": "join", "paths": [p["path"] for p in parts], "out": str(self.dir / "rejoined.mp4")},
+                         allowed_roots=[self.dir])["output"]
         self.assertAlmostEqual(j["duration_s"], 10, delta=0.2)
         self.assertEqual((j["width"], j["height"]), (1080, 1920))
         self.assertTrue(j["has_audio"])
@@ -71,7 +72,8 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(len(parts), 4)
         self.assertEqual([p["frames"] for p in parts[:3]], [73, 73, 73])  # 3 s + the shared frame
         self.assertEqual((parts[0]["width"], parts[0]["height"], parts[0]["fps"]), (544, 960, 24.0))
-        j = media.join([p["path"] for p in parts], out=str(self.dir / "chain_joined.mp4"), drop_first=1)
+        j = media.handle({"action": "join", "paths": [p["path"] for p in parts], "drop_first": 1,
+                          "out": str(self.dir / "chain_joined.mp4")}, allowed_roots=lambda: [self.dir])
         self.assertEqual(j["drop_first"], 1)
         self.assertEqual(j["output"]["frames"], sum(p["frames"] for p in parts) - (len(parts) - 1))
         self.assertAlmostEqual(j["output"]["duration_s"], 10, delta=0.15)
@@ -127,7 +129,8 @@ class MediaTests(unittest.TestCase):
         inp = self.dir / "input2"
         r = media.handle({"action": "frames", "path": str(self.src), "which": ["first"], "to_input": True},
                          input_dir_for=lambda name: inp)
-        self.assertEqual(r["input_files"][0]["input_name"], "clip_first.png")
+        self.assertEqual(r["input_files"][0]["input_name"], Path(r["outputs"][0]["path"]).name)
+        self.assertTrue(r["input_files"][0]["input_name"].startswith("clip_first"))
         self.assertIn("close + open", r["next"])
 
 

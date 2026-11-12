@@ -93,9 +93,9 @@ class DownloaderTests(unittest.TestCase):
     def test_tutorial_first_then_rest_and_card(self):
         files = {'big_t1': b'T' * 300_000, 'small_other': b'o' * 1000, 't2': b'2' * 5000}
         with file_server(files) as (url, log):
-            downloads.enqueue(self.install, self.models, [{'folder': 'loras', 'name': 'o.safetensors', 'url': url + '/small_other', 'size_bytes': 1000}], group='other', spawn=False)
-            downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 't2.safetensors', 'url': url + '/t2', 'size_bytes': 5000}], group='tutorial-2', spawn=False)
-            r = downloads.enqueue(self.install, self.models, [{'folder': 'diffusion_models', 'name': 'big.safetensors', 'url': url + '/big_t1', 'size_bytes': 300_000}], group='tutorial-1', spawn=False)
+            downloads.enqueue(self.install, self.models, [{'folder': 'loras', 'name': 'o.safetensors', 'url': url + '/small_other', 'size_bytes': 1000}], group='other', spawn=False, allow_local=True)
+            downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 't2.safetensors', 'url': url + '/t2', 'size_bytes': 5000}], group='tutorial-2', spawn=False, allow_local=True)
+            r = downloads.enqueue(self.install, self.models, [{'folder': 'diffusion_models', 'name': 'big.safetensors', 'url': url + '/big_t1', 'size_bytes': 300_000}], group='tutorial-1', spawn=False, allow_local=True)
             self.assertEqual(r['state'], 'pending')
             self.assertTrue(r['progress_card'].startswith('MEDIA:') and r['progress_card'].endswith('downloads.json'))
             self.assertEqual(downloads.run(self.install), 'done')
@@ -115,14 +115,14 @@ class DownloaderTests(unittest.TestCase):
         target.parent.mkdir(parents=True)
         target.with_name('v.safetensors.part').write_bytes(data[:10_000])
         with file_server({'v': data}) as (url, log):
-            downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 'v.safetensors', 'url': url + '/v'}], spawn=False)
+            downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 'v.safetensors', 'url': url + '/v'}], spawn=False, allow_local=True)
             downloads.run(self.install)
         self.assertEqual(log, [('v', 'bytes=10000-')])
         self.assertEqual(target.read_bytes(), data)
 
     def test_wrong_size_is_an_error_not_a_model(self):
         with file_server({'x': b'short'}) as (url, _), patch.object(downloads.time, 'sleep'):
-            downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 'x.safetensors', 'url': url + '/x', 'size_bytes': 99}], spawn=False)
+            downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 'x.safetensors', 'url': url + '/x', 'size_bytes': 99}], spawn=False, allow_local=True)
             downloads.run(self.install)
         card = downloads.status(self.install)
         self.assertEqual(card['state'], 'error')
@@ -145,7 +145,7 @@ class DownloaderTests(unittest.TestCase):
                 downloads.enqueue(self.install, self.models, [{'folder': 'vae', 'name': 'v', 'url': url}], spawn=False)
 
     def test_queue_groups_models_without_url_are_reported(self):
-        with patch.object(downloads, 'enqueue', side_effect=lambda d, r, m, group, spawn: {'group': group, 'n': len(m)}) as enq:
+        with patch.object(downloads, 'enqueue', side_effect=lambda d, r, m, group, spawn, **kw: {'group': group, 'n': len(m)}) as enq:
             r = download_flow.queue(self.install, self.models, [
                 {'folder': 'vae', 'name': 'wan_2.1_vae.safetensors', 'url': 'https://h/w'},
                 {'folder': 'vae', 'name': 'qwen_image_2.1_vae_bf16.safetensors', 'url': 'https://h/q'},
